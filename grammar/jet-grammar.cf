@@ -1,0 +1,12 @@
+token InlineHaskell '{' ((char - ["{}\\"]) | ('\\' ["{}\\nt"]))* '}';
+
+TRule. TypeRule ::= "rule" Ident "->" [TypeJudgement] "|" TypeJudgement SideCondition;
+
+TJudge. TypeJudgement ::= Ident [Ident] ":" Type;
+TType. Type ::= Ident [Ident];
+
+HSideCondition. SideCondition ::= InlineHaskell;
+HEmptySideCondition. SideCondition ::= ;
+
+separator TypeJudgement ",";
+separator Ident "";
