@@ -1,12 +1,23 @@
 token InlineHaskell '{' ((char - ["{}\\"]) | ('\\' ["{}\\nt"]))* '}';
 
-TRule. TypeRule ::= "rule" Ident "->" [TypeJudgement] "|" TypeJudgement SideCondition;
+TSystem. TypeSystem ::= [TypeRule] ;
 
-TJudge. TypeJudgement ::= Ident [Ident] ":" Type;
-TType. Type ::= Ident [Ident];
+TRule. TypeRule ::= "rule" RuleName "<-" TypePremises TypeJudgement SideCondition;
+
+TPremises. TypePremises ::= "if" [RuleApplication] "then" ;
+TNoPremis. TypePremises ::= ;
+
+TJudge. TypeJudgement ::= Ident [Ident] Type;
+TType. Type ::= ":" Ident [Ident];
+TNone. Type ::= ;
 
 HSideCondition. SideCondition ::= InlineHaskell;
 HEmptySideCondition. SideCondition ::= ;
 
+RName. RuleName ::= Ident;
+RApp. RuleApplication ::= RuleName Type ;
+
 separator TypeJudgement ",";
+separator RuleApplication ",";
 separator Ident "";
+terminator TypeRule ";" ;
