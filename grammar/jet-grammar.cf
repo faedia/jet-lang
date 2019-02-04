@@ -7,7 +7,7 @@ TRule. TypeRule ::= "rule" RuleName "<-" TypePremises TypeJudgement SideConditio
 TPremises. TypePremises ::= "if" [RuleApplication] "then" ;
 TNoPremis. TypePremises ::= ;
 
-TJudge. TypeJudgement ::= Ident [Ident] Type;
+TJudge. TypeJudgement ::= Ident "(" Ident [Ident] ")" Type;
 TType. Type ::= ":" Ident [Ident];
 TNone. Type ::= ;
 
