@@ -22,15 +22,15 @@ genCheckRule (Abs.TRule name premises judgement scond) = case premises of
         Abs.TJudge (Abs.Ident prodName) (Abs.Ident labelName) vars (Abs.TType tvar tparams) ->
             if isTypeVar tvar then
                 if null tparams then 
-                    ErrM.Ok "Need to do something to get the type var"
+                    ErrM.Ok "TODO: No premis type var"
                 else
                     ErrM.Bad "Type Vars don't take params"
             else
                 ErrM.Ok ("check" ++ prodName ++ " ctx t (" ++ labelName ++ foldr (\a b -> b ++ " " ++ identToString a) "" vars ++ ") = if t == " ++ identToString tvar ++ foldr (\a b -> b ++ " " ++ identToString a) "" tparams ++ " then Ok ctx else Bad \"Inconsistent types\"")
-    _ -> ErrM.Ok "TODO"
+    _ -> ErrM.Ok "TODO: Premises"
 
 genInferRule :: Abs.TypeRule -> ErrM.Err String
-genInferRule rule = ErrM.Ok "Infer"
+genInferRule rule = ErrM.Ok "TODO: Infer"
 
 generateFromRule :: Abs.TypeRule -> ErrM.Err [String]
 generateFromRule (Abs.TRule rname tpremise (Abs.TJudge prod label params t) scond) = do
@@ -76,7 +76,7 @@ main = do
         ErrM.Bad err -> print err
         ErrM.Ok rs -> do_print rs
         where
-            do_print (x1:x2:xs) = do
-                print x1
-                do_print (x2:xs)
-            do_print [x1] = print x1
+            do_print [] = putStrLn ""
+            do_print (x:xs) = do
+                putStrLn x
+                do_print xs
