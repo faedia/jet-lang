@@ -9,32 +9,60 @@ import Data.Char;
 isTypeVar :: Abs.Ident -> Bool
 isTypeVar (Abs.Ident str) = isLower (head str)
 
+getInlineHaskell :: Abs.InlineHaskell -> String
+getInlineHaskell (Abs.InlineHaskell str) = (tail . init) str
+
+ctxDefnCode :: Abs.ContextDefn -> String
+ctxDefnCode (Abs.CtxDefn code) = getInlineHaskell code
+
 identToString :: Abs.Ident -> String
 identToString (Abs.Ident str) = str
 
+checkFunctionPatternDefn :: Abs.TypeJudgement -> String
+checkFunctionPatternDefn (Abs.TJudge (Abs.Ident prodName) (Abs.Ident labelName) vars _) = "check" ++ prodName ++ " ctx jetCheckType (" ++ labelName ++ foldr (\a b -> b ++ " " ++ identToString a) "" vars ++ ") = "
+
+sideCond :: Abs.SideCondition -> String
+sideCond (Abs.HSideCondition scond) = getInlineHaskell scond
+sideCond Abs.HEmptySideCondition = ""
+
+hasSideCond :: Abs.SideCondition -> Bool
+hasSideCond Abs.HEmptySideCondition = False
+hasSideCond _ = True
+
+getT :: Abs.Ident -> [Abs.Ident] -> Abs.SideCondition -> String
+getT tvar tparams scond = if isTypeVar tvar then
+    sideCond scond
+    else
+        "let t = " ++ identToString tvar ++ foldr (\a b -> b ++ " " ++ identToString a) "" tparams ++ (
+            if hasSideCond scond then 
+                "\n\t" ++ sideCond scond 
+            else 
+                "")
+
 genCheckRule :: Abs.TypeRule -> ErrM.Err String
-genCheckRule (Abs.TRule name premises judgement scond) = case premises of
+genCheckRule (Abs.TRule name premises ctx judgement scond) = case premises of
     Abs.TNoPremis -> case judgement of
         Abs.TJudge (Abs.Ident prodName) (Abs.Ident labelName) vars Abs.TNone -> if null vars then
-                ErrM.Ok ("check" ++ prodName ++ " ctx t " ++ labelName ++ " = Ok ctx")
+                ErrM.Ok (checkFunctionPatternDefn judgement ++ " = Ok " ++ ctxDefnCode ctx)
             else
                 ErrM.Bad "If the current node has no children then we should have no premises"
         Abs.TJudge (Abs.Ident prodName) (Abs.Ident labelName) vars (Abs.TType tvar tparams) ->
-            if isTypeVar tvar then
-                if null tparams then 
-                    ErrM.Ok "TODO: No premis type var"
+            let t' = getT tvar tparams scond in
+                if isTypeVar tvar then
+                    if null tparams then
+                        ErrM.Ok (checkFunctionPatternDefn judgement ++ "do\n\t" ++ t' ++ "\n\tif jetCheckType == t then Ok (" ++ ctxDefnCode ctx ++ ") else Bad \"Inconsistent types\"")
+                    else
+                        ErrM.Bad "Type Vars don't take params"
                 else
-                    ErrM.Bad "Type Vars don't take params"
-            else
-                ErrM.Ok ("check" ++ prodName ++ " ctx t (" ++ labelName ++ foldr (\a b -> b ++ " " ++ identToString a) "" vars ++ ") = if t == " ++ identToString tvar ++ foldr (\a b -> b ++ " " ++ identToString a) "" tparams ++ " then Ok ctx else Bad \"Inconsistent types\"")
+                    ErrM.Ok (checkFunctionPatternDefn judgement ++ "do\n\t" ++ t' ++ "\n\tif jetCheckType == t then Ok (" ++ ctxDefnCode ctx ++ ") else Bad \"Inconsistent types\"")
     _ -> ErrM.Ok "TODO: Premises"
 
 genInferRule :: Abs.TypeRule -> ErrM.Err String
 genInferRule rule = ErrM.Ok "TODO: Infer"
 
 generateFromRule :: Abs.TypeRule -> ErrM.Err [String]
-generateFromRule (Abs.TRule rname tpremise (Abs.TJudge prod label params t) scond) = do
-    let rule = (Abs.TRule rname tpremise (Abs.TJudge prod label params t) scond)
+generateFromRule (Abs.TRule rname tpremise ctx (Abs.TJudge prod label params t) scond) = do
+    let rule = (Abs.TRule rname tpremise ctx (Abs.TJudge prod label params t) scond)
     checkRule <- genCheckRule rule
     inferRule <- genInferRule rule
     case t of
@@ -42,7 +70,7 @@ generateFromRule (Abs.TRule rname tpremise (Abs.TJudge prod label params t) scon
         _ -> ErrM.Ok (checkRule : [inferRule])
 
 getRuleName :: Abs.TypeRule -> String
-getRuleName (Abs.TRule (Abs.RName (Abs.Ident x)) _ _ _) = x
+getRuleName (Abs.TRule (Abs.RName (Abs.Ident x)) _ _ _ _) = x
 
 getAllRules :: Abs.TypeSystem -> [Abs.TypeRule]
 getAllRules (Abs.TSystem rules) = rules
