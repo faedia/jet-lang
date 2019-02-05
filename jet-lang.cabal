@@ -14,6 +14,11 @@ executable jet-lang
     main-is: Main.hs
     hs-source-dirs: src gen
     default-language: Haskell2010
+    other-modules: 
+        AbsJetGrammar,
+        LexJetGrammar,
+        ParJetGrammar,
+        ErrM
     build-depends:
         base >=4.12 && <4.13,
         array -any,
