@@ -5,6 +5,8 @@ import qualified ParJetGrammar as Par;
 import qualified ErrM;
 import Data.List;
 import Data.Char;
+import Data.Set (Set);
+import qualified Data.Set as Set;
 
 isTypeVar :: Abs.Ident -> Bool
 isTypeVar (Abs.Ident str) = isLower (head str)
@@ -15,11 +17,15 @@ getInlineHaskell (Abs.InlineHaskell str) = (tail . init) str
 ctxDefnCode :: Abs.ContextDefn -> String
 ctxDefnCode (Abs.CtxDefn code) = getInlineHaskell code
 
-identToString :: Abs.Ident -> String
-identToString (Abs.Ident str) = str
+id2Str :: Abs.Ident -> String
+id2Str (Abs.Ident str) = str
 
-checkFunctionPatternDefn :: Abs.TypeJudgement -> String
-checkFunctionPatternDefn (Abs.TJudge (Abs.Ident prodName) (Abs.Ident labelName) vars _) = "check" ++ prodName ++ " ctx jetCheckType (" ++ labelName ++ foldr (\a b -> b ++ " " ++ identToString a) "" vars ++ ") = "
+genCheckFuncDefn :: Abs.TypeJudgement -> String
+genCheckFuncDefn (Abs.TJudge prod label vars tSign) = "check" ++ id2Str prod ++ " ctx " ++ typevar ++ " (" ++ id2Str label ++ foldr (\a b -> b ++ " " ++ id2Str a) "" vars ++ ") = "
+    where    
+    typevar = case tSign of
+        Abs.TNone -> ""
+        _ -> "jetTypeCheck"
 
 sideCond :: Abs.SideCondition -> String
 sideCond (Abs.HSideCondition scond) = getInlineHaskell scond
@@ -33,29 +39,48 @@ getT :: Abs.Ident -> [Abs.Ident] -> Abs.SideCondition -> String
 getT tvar tparams scond = if isTypeVar tvar then
     sideCond scond
     else
-        "let t = " ++ identToString tvar ++ foldr (\a b -> b ++ " " ++ identToString a) "" tparams ++ (
+        "let t = " ++ id2Str tvar ++ foldr (\a b -> b ++ " " ++ id2Str a) "" tparams ++ (
             if hasSideCond scond then 
                 "\n\t" ++ sideCond scond 
             else 
                 "")
 
+expandTypeDef :: Abs.Type -> String
+expandTypeDef (Abs.TType tvar tparams) = id2Str tvar ++ foldr (\a b -> b ++ " " ++ id2Str a) "" tparams
+
+genPremisesCheck :: [Abs.TypePremises] -> Set Abs.Ident -> String
+genPremisesCheck [] typeSet = ""
+genPremisesCheck (Abs.TPremises prod nodeId typeNode :ps) typeSet = case typeNode of
+    Abs.TNone -> "\n\tctx <- check" ++ id2Str prod ++ " ctx " ++ id2Str nodeId ++ "\n\t" ++ genPremisesCheck ps typeSet
+    Abs.TType tvar tparams -> if isTypeVar tvar then
+            if tvar `Set.member` typeSet then
+                "\n\tctx <- check" ++ id2Str prod ++ " ctx " ++ id2Str nodeId ++ " " ++ id2Str tvar ++ "" ++ genPremisesCheck ps typeSet
+            else
+                "\n\t" ++ id2Str tvar ++ " <- infer" ++ id2Str prod ++ " ctx " ++ id2Str nodeId ++ "" ++ genPremisesCheck ps (Set.insert tvar typeSet)
+        else
+            "\n\tctx <- check" ++ id2Str prod ++ "ctx " ++ id2Str nodeId ++ " (" ++ expandTypeDef typeNode ++ ") " ++ genPremisesCheck ps typeSet
+
 genCheckRule :: Abs.TypeRule -> ErrM.Err String
 genCheckRule (Abs.TRule name premises ctx judgement scond) = case premises of
     Abs.TNoPremis -> case judgement of
         Abs.TJudge (Abs.Ident prodName) (Abs.Ident labelName) vars Abs.TNone -> if null vars then
-                ErrM.Ok (checkFunctionPatternDefn judgement ++ " = Ok " ++ ctxDefnCode ctx)
+                ErrM.Ok (genCheckFuncDefn judgement ++ " = Ok " ++ ctxDefnCode ctx)
             else
                 ErrM.Bad "If the current node has no children then we should have no premises"
         Abs.TJudge (Abs.Ident prodName) (Abs.Ident labelName) vars (Abs.TType tvar tparams) ->
             let t' = getT tvar tparams scond in
                 if isTypeVar tvar then
                     if null tparams then
-                        ErrM.Ok (checkFunctionPatternDefn judgement ++ "do\n\t" ++ t' ++ "\n\tif jetCheckType == t then Ok (" ++ ctxDefnCode ctx ++ ") else Bad \"Inconsistent types\"")
+                        ErrM.Ok (genCheckFuncDefn judgement ++ "do\n\t" ++ t' ++ "\n\tif jetCheckType == " ++ id2Str tvar ++ " then Ok (" ++ ctxDefnCode ctx ++ ") else Bad \"Inconsistent types\"")
                     else
                         ErrM.Bad "Type Vars don't take params"
                 else
-                    ErrM.Ok (checkFunctionPatternDefn judgement ++ "do\n\t" ++ t' ++ "\n\tif jetCheckType == t then Ok (" ++ ctxDefnCode ctx ++ ") else Bad \"Inconsistent types\"")
-    _ -> ErrM.Ok "TODO: Premises"
+                    ErrM.Ok (genCheckFuncDefn judgement ++ "do\n\tif jetCheckType == ("++ expandTypeDef (Abs.TType tvar tparams)  ++ ") then Ok (" ++ ctxDefnCode ctx ++ ") else Bad \"Inconsistent types\"")
+    Abs.TPremisCond ps -> case judgement of 
+        Abs.TJudge (Abs.Ident prodName) (Abs.Ident labelName) vars Abs.TNone -> 
+            ErrM.Ok (genCheckFuncDefn judgement ++ "do" ++ genPremisesCheck ps Set.empty ++ "\n\tOk (" ++ ctxDefnCode ctx ++ ")")
+        Abs.TJudge (Abs.Ident prodName) (Abs.Ident labelName) vars (Abs.TType tvar tparams) ->
+            ErrM.Ok (genCheckFuncDefn judgement ++ "do" ++ genPremisesCheck ps Set.empty ++ "\n\t" ++ "if jetCheckType == (" ++ expandTypeDef (Abs.TType tvar tparams) ++ ") then Ok (" ++ ctxDefnCode ctx ++ ") else Bad \"Inconsistent types\"")
 
 genInferRule :: Abs.TypeRule -> ErrM.Err String
 genInferRule rule = ErrM.Ok "TODO: Infer"
