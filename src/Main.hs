@@ -24,17 +24,20 @@ tab = "    "
 nltab = "\n" ++ tab
 
 expandDef :: Abs.Ident -> [Abs.Ident] -> String
-expandDef var params = id2Str var ++ foldr (\a b -> b ++ " " ++ id2Str a) "" params
+expandDef var params = id2Str var ++ " " ++ foldr (\a b -> id2Str a ++ " " ++ b) "" params
 
 genFuncPattern :: String -> Abs.Ident -> String
 genFuncPattern str id = str ++ id2Str id ++ " ctx "
 
 genCheckFuncDefn :: Abs.TypeJudgement -> String
-genCheckFuncDefn (Abs.TJudge prod label vars tSign) = genFuncPattern "check" prod ++ typevar ++ " (" ++ expandDef label vars ++ ") = do" ++ nltab
+genCheckFuncDefn (Abs.TJudge prod label vars tSign) = genFuncPattern "check" prod ++ "(" ++ expandDef label vars ++ ") " ++ typevar ++ " = do" ++ nltab
     where    
     typevar = case tSign of
         Abs.TNone -> ""
-        _ -> "jetCheckType"
+        _ -> "jetCheckType "
+
+genInferFuncDefn :: Abs.TypeJudgement -> String
+genInferFuncDefn (Abs.TJudge prod label vars tSign) = genFuncPattern "infer" prod ++ "(" ++expandDef label vars ++ ") = do" ++ nltab
 
 sideCond :: Abs.SideCondition -> String
 sideCond (Abs.HSideCondition scond) = getInlineHaskell scond
@@ -97,32 +100,45 @@ genCheckRule (Abs.TRule name premises ctx judgement scond) = case premises of
         genIfExpr str = "if jetCheckType == (" ++ str ++ ") then Ok (" ++ ctxDefnCode ctx ++ ") else Bad \"Inconsistent types\""
 
 genInferRule :: Abs.TypeRule -> ErrM.Err String
-genInferRule rule = ErrM.Ok "-- TODO: Infer"
+genInferRule (Abs.TRule name premises ctx judgement scond) = case premises of 
+    Abs.TNoPremis -> case judgement of 
+        Abs.TJudge (Abs.Ident prodName) (Abs.Ident labelName) vars (Abs.TType tvar tparams) ->
+            let t' = getT tvar tparams scond in
+                ErrM.Ok (genInferFuncDefn judgement ++ t' ++ nltab ++ "Ok (" ++ expandDef tvar tparams ++ ")")
+    Abs.TPremisCond ps -> case judgement of
+        Abs.TJudge (Abs.Ident prodName) (Abs.Ident labelName) vars (Abs.TType tvar tparams) ->
+            ErrM.Ok (genInferFuncDefn judgement ++  genPremisesCheck ps Set.empty ++ nltab ++ "Ok (" ++ expandDef tvar tparams ++ ")")
 
-generateFromRule :: Abs.TypeRule -> ErrM.Err [String]
+generateFromRule :: Abs.TypeRule -> ErrM.Err (String, String)
 generateFromRule (Abs.TRule rname tpremise ctx (Abs.TJudge prod label params t) scond) = do
-    let rule = (Abs.TRule rname tpremise ctx (Abs.TJudge prod label params t) scond)
+    let rule = Abs.TRule rname tpremise ctx (Abs.TJudge prod label params t) scond
     checkRule <- genCheckRule rule
-    inferRule <- genInferRule rule
     case t of
-        Abs.TNone -> ErrM.Ok [checkRule ++ "\n"]
-        _ -> ErrM.Ok ((checkRule ++ "\n") : [inferRule ++ "\n"])
+        Abs.TNone -> ErrM.Ok (checkRule ++ "\n","")
+        _ -> do
+            inferRule <- genInferRule rule
+            ErrM.Ok (checkRule ++ "\n",inferRule ++ "\n")
 
 getAllRules :: Abs.TypeSystem -> [Abs.TypeRule]
 getAllRules (Abs.TSystem rules) = rules
 
-gen :: [Abs.TypeRule] -> ErrM.Err [String]
-gen [] = ErrM.Ok []
+gen :: [Abs.TypeRule] -> ErrM.Err ([String], [String])
+gen [] = ErrM.Ok ([],[])
 gen (r:rs) = do
     rgen <- generateFromRule r
     rsgen <- gen rs
-    ErrM.Ok (rgen ++ rsgen)
+    ErrM.Ok (([fst rgen] ++ fst rsgen), ([snd rgen] ++ snd rsgen))
 
-run :: String ->  ErrM.Err [String]
+run :: String ->  ErrM.Err ([String], [String])
 run s = do
     tree <- (Par.pTypeSystem . Par.myLexer) s
     let rules = getAllRules tree
     gen rules
+
+rulesToStr :: ([String], [String]) -> String
+rulesToStr ([],[]) = ""
+rulesToStr ([],(infer:infers)) = infer ++ rulesToStr ([],infers)
+rulesToStr ((check:checks),infers) = check ++ rulesToStr (checks,infers)
 
 main :: IO ()
 main = do
@@ -130,4 +146,4 @@ main = do
     let rules = run contents
     case rules of
         ErrM.Bad err -> print err
-        ErrM.Ok rs -> putStr (concat rs)
+        ErrM.Ok rs -> putStr ("module TypeChecker where\nimport AbsCalc;\nimport ErrM;\nimport Data.Map (Map);\nimport qualified Data.Map as Map;\n\n" ++ rulesToStr rs)
