@@ -23,3 +23,6 @@ separator TypeJudgement ",";
 separator TypePremises ",";
 separator Ident "";
 terminator TypeRule ";" ;
+
+comment "--";
+comment "[-" "-]"
