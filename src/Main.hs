@@ -78,7 +78,7 @@ genCheckRule :: Abs.TypeRule -> ErrM.Err String
 genCheckRule (Abs.TRule name premises ctx judgement scond) = case premises of
     Abs.TNoPremis -> case judgement of
         Abs.TJudge (Abs.Ident prodName) (Abs.Ident labelName) vars Abs.TNone -> if null vars then
-                ErrM.Ok (genCheckFuncDefn judgement ++ "Ok (" ++ ctxDefnCode ctx ++ ")")
+                ErrM.Ok (genCheckFuncDefn judgement ++ ctxDefnCode ctx )
             else
                 ErrM.Bad "If the current node has no children then we should have no premises"
         Abs.TJudge (Abs.Ident prodName) (Abs.Ident labelName) vars (Abs.TType tvar tparams) ->
@@ -92,12 +92,12 @@ genCheckRule (Abs.TRule name premises ctx judgement scond) = case premises of
                     ErrM.Ok (genCheckFuncDefn judgement ++ genIfExpr (expandDef tvar tparams))
     Abs.TPremisCond ps -> case judgement of 
         Abs.TJudge (Abs.Ident prodName) (Abs.Ident labelName) vars Abs.TNone -> 
-            ErrM.Ok (genCheckFuncDefn judgement ++  genPremisesCheck ps Set.empty ++ nltab ++ "Ok (" ++ ctxDefnCode ctx ++ ")")
+            ErrM.Ok (genCheckFuncDefn judgement ++  genPremisesCheck ps Set.empty ++ nltab ++ ctxDefnCode ctx)
         Abs.TJudge (Abs.Ident prodName) (Abs.Ident labelName) vars (Abs.TType tvar tparams) ->
             ErrM.Ok (genCheckFuncDefn judgement ++  genPremisesCheck ps Set.empty ++ nltab ++ genIfExpr (expandDef tvar tparams))
     where
         genIfExpr :: String -> String
-        genIfExpr str = "if jetCheckType == (" ++ str ++ ") then Ok (" ++ ctxDefnCode ctx ++ ") else Bad \"Inconsistent types\""
+        genIfExpr str = "if jetCheckType == (" ++ str ++ ") then " ++ ctxDefnCode ctx ++ " else Bad \"Inconsistent types\""
 
 genInferRule :: Abs.TypeRule -> ErrM.Err String
 genInferRule (Abs.TRule name premises ctx judgement scond) = case premises of 
