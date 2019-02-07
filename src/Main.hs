@@ -120,7 +120,7 @@ generateFromRule (Abs.TRule rname tpremise ctx (Abs.TJudge prod label params t) 
             ErrM.Ok (checkRule ++ "\n",inferRule ++ "\n")
 
 getAllRules :: Abs.TypeSystem -> [Abs.TypeRule]
-getAllRules (Abs.TSystem rules) = rules
+getAllRules (Abs.TSystem _ rules) = rules
 
 gen :: [Abs.TypeRule] -> ErrM.Err ([String], [String])
 gen [] = ErrM.Ok ([],[])
@@ -129,11 +129,16 @@ gen (r:rs) = do
     rsgen <- gen rs
     ErrM.Ok (([fst rgen] ++ fst rsgen), ([snd rgen] ++ snd rsgen))
 
-run :: String ->  ErrM.Err ([String], [String])
+getHeaderCode :: Abs.TypeSystem -> String
+getHeaderCode (Abs.TSystem code _) = getInlineHaskell code ++ "\n"
+
+run :: String ->  ErrM.Err (String, ([String], [String]))
 run s = do
     tree <- (Par.pTypeSystem . Par.myLexer) s
     let rules = getAllRules tree
-    gen rules
+    let headerCode = getHeaderCode tree
+    genRules <- gen rules
+    ErrM.Ok (headerCode, (genRules))
 
 rulesToStr :: ([String], [String]) -> String
 rulesToStr ([],[]) = ""
@@ -146,4 +151,4 @@ main = do
     let rules = run contents
     case rules of
         ErrM.Bad err -> print err
-        ErrM.Ok rs -> putStr ("module TypeChecker where\nimport AbsCalc;\nimport ErrM;\nimport Data.Map (Map);\nimport qualified Data.Map as Map;\n\n" ++ rulesToStr rs)
+        ErrM.Ok rs -> putStr (fst rs ++ rulesToStr (snd rs))

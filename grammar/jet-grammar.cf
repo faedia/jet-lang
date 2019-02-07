@@ -1,6 +1,6 @@
 token InlineHaskell '{' ((char - ["{}\\"]) | ('\\' ["{}\\nt"]))* '}';
 
-TSystem. TypeSystem ::= [TypeRule] ;
+TSystem. TypeSystem ::= InlineHaskell [TypeRule] ;
 
 TRule. TypeRule ::= "rule" RuleName "<-" TypePremisesCond ContextDefn TypeJudgement SideCondition;
 
