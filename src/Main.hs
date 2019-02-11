@@ -31,7 +31,7 @@ genFuncPattern str id = str ++ id2Str id ++ " ctx "
 
 genCheckFuncDefn :: Abs.TypeJudgement -> String
 genCheckFuncDefn (Abs.TJudge prod label vars tSign) = genFuncPattern "check" prod ++ "(" ++ expandDef label vars ++ ") " ++ typevar ++ " = do" ++ nltab
-    where    
+    where
     typevar = case tSign of
         Abs.TNone -> ""
         _ -> "jetCheckType "
@@ -127,7 +127,7 @@ gen [] = ErrM.Ok ([],[])
 gen (r:rs) = do
     rgen <- generateFromRule r
     rsgen <- gen rs
-    ErrM.Ok (([fst rgen] ++ fst rsgen), ([snd rgen] ++ snd rsgen))
+    ErrM.Ok (fst rgen : fst rsgen, snd rgen : snd rsgen)
 
 getHeaderCode :: Abs.TypeSystem -> String
 getHeaderCode (Abs.TSystem code _) = getInlineHaskell code ++ "\n"
@@ -138,12 +138,12 @@ run s = do
     let rules = getAllRules tree
     let headerCode = getHeaderCode tree
     genRules <- gen rules
-    ErrM.Ok (headerCode, (genRules))
+    ErrM.Ok (headerCode, genRules)
 
 rulesToStr :: ([String], [String]) -> String
 rulesToStr ([],[]) = ""
-rulesToStr ([],(infer:infers)) = infer ++ rulesToStr ([],infers)
-rulesToStr ((check:checks),infers) = check ++ rulesToStr (checks,infers)
+rulesToStr ([],infer:infers) = infer ++ rulesToStr ([],infers)
+rulesToStr (check:checks,infers) = check ++ rulesToStr (checks,infers)
 
 main :: IO ()
 main = do

@@ -1,0 +1,5 @@
+----------
+    Need to restructure so that we create an intermediate representation before we generate the code
+----------
+    Need to think about general algorithms to handle this issue
+----------
