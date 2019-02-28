@@ -1,0 +1,43 @@
+Prog.    Program ::= FuncDecl;
+FDecl.   FuncDecl ::= "function" Ident "(" [VarDecl] ")" "return" TypeName Block;
+PDecl.   ProcDecl ::= "procedure" Ident "(" [VarDecl] ")" Block;
+VDecl.   VarDecl  ::= Ident ":" TypeName; 
+separator VarDecl ";";
+
+Blck.    Block ::= "declare" [Decl] "begin" [Stmnt] "end";
+
+DFunc.   Decl ::= FuncDecl;
+DProc.   Decl ::= ProcDecl;
+DVar.    Decl ::= VarDecl;
+terminator Decl ";";
+
+SNull.   Stmnt ::= "null";
+SPrint.  Stmnt ::= "print" Expr;
+SAssign. Stmnt ::= Ident ":=" Expr;
+SIf.     Stmnt ::= "if" Expr "then" [Stmnt] "else" [Stmnt] "end";
+SWhile.  Stmnt ::= "while" Expr "do" [Stmnt] "end";
+SBlock.  Stmnt ::= Block;
+SCall.   Stmnt ::= Ident "(" [Expr] ")";
+terminator nonempty Stmnt ";";
+
+EInt.    Expr4 ::= Integer;
+ETrue.   Expr4 ::= "true";
+EFalse.  Expr4 ::= "false";
+
+ECall.   Expr3 ::= Ident "(" [Expr] ")";
+ENeg.    Expr3 ::= "neg" Expr4;
+ENot.    Expr3 ::= "not" Expr4;
+
+EMul.    Expr2 ::= Expr2 "*" Expr3;
+EAnd.    Expr2 ::= Expr2 "and" Expr3;
+
+EAdd.    Expr1 ::= Expr1 "+" Expr2;
+EOr.     Expr1 ::= Expr1 "or" Expr2;
+
+EEq.     Expr  ::= Expr "=" Expr1;
+ELT.     Expr  ::= Expr "<" Expr1;
+coercions Expr 4;
+separator Expr ",";
+
+TNBool.  TypeName ::= "bool";
+TNInt.   TypeName ::= "int";

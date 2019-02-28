@@ -1,28 +1,25 @@
 token InlineHaskell '{' ((char - ["{}\\"]) | ('\\' ["{}\\nt"]))* '}';
+TSystem. TypeSystem ::= InlineHaskell [TypeRule];
+TRule. TypeRule ::= "type" Ident "<-" TypePremises Judgement;
 
-TSystem. TypeSystem ::= InlineHaskell [TypeRule] ;
+TPremis. TypePremises ::= "if" [JudgementWSC] "then";
+TPNone.  TypePremises ::= ;
 
-TRule. TypeRule ::= "rule" RuleName "<-" TypePremisesCond ContextDefn TypeJudgement SideCondition;
+JSideCond. JudgementWSC ::= InlineHaskell;
+JJudge. JudgementWSC ::= Judgement;
 
-TPremisCond. TypePremisesCond ::= "if" [TypePremises] "then" ;
-TNoPremis. TypePremisesCond ::= ;
+JSingle. Judgement ::= "ctx" "<-" InlineHaskell "|" "(" Ident [Ident] ")" Type;
 
-TJudge. TypeJudgement ::= Ident "(" Ident [Ident] ")" Type;
-TType. Type ::= ":" Ident [Ident];
+-- In TypePremises we want to have size of [Ident] to be 1 in TypeRule we want
+-- [Ident] to be 2 such that we can create the pattern (x:xs)
+JList. Judgement ::= "ctx" "<-" InlineHaskell "|" "[" Ident [Ident] "]" Type;
+
+TType. Type ::= Ident [Ident];
 TNone. Type ::= ;
 
-HSideCondition. SideCondition ::= InlineHaskell;
-HEmptySideCondition. SideCondition ::= ;
-
-RName. RuleName ::= Ident;
-TPremises. TypePremises ::= Ident Ident Type ;
-
-CtxDefn. ContextDefn ::= InlineHaskell ;
-
-separator TypeJudgement ",";
-separator TypePremises ",";
-separator Ident "";
 terminator TypeRule ";" ;
+separator nonempty JudgementWSC ",";
+separator Ident "";
 
 comment "--";
-comment "[-" "-]"
+comment "{-" "-}"
