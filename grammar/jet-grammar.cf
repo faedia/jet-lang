@@ -8,11 +8,11 @@ TPNone.  TypePremises ::= ;
 JSideCond. JudgementWSC ::= InlineHaskell;
 JJudge. JudgementWSC ::= Judgement;
 
-JSingle. Judgement ::= "ctx" "<-" InlineHaskell "|" "(" Ident [Ident] ")" Type;
+JSingle. Judgement ::= InlineHaskell "|-" "(" Ident Ident [Ident] ")" Type;
 
 -- In TypePremises we want to have size of [Ident] to be 1 in TypeRule we want
 -- [Ident] to be 2 such that we can create the pattern (x:xs)
-JList. Judgement ::= "ctx" "<-" InlineHaskell "|" "[" Ident [Ident] "]" Type;
+JList. Judgement ::= InlineHaskell "|-" "[" Ident Ident [Ident] "]" Type;
 
 TType. Type ::= Ident [Ident];
 TNone. Type ::= ;
