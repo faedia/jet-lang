@@ -1,0 +1,147 @@
+{
+module TypeChecker where
+
+import ErrM
+import Data.List (find)
+import Debug.Trace
+
+import AbsAd
+
+data SubProgram = SPFunc [TypeName] TypeName | SPProc [TypeName] | SNone
+    deriving (Eq, Ord, Show, Read)
+
+type Blk = ([(Ident, SubProgram)], [(Ident, TypeName)], (Ident, SubProgram))
+type Context = ([Blk], (Ident, SubProgram))
+
+nullContext = newBlock ([], (Ident "", SNone))
+nullBlock = ([], [])
+newBlock (blocks,sprog) = (nullBlock : blocks, sprog)
+
+id2Str (Ident s) = s
+
+findSprogInContext ident ([],_) = Bad ("Subprogram " ++ id2Str ident ++ " not defined")
+findSprogInContext ident  (blk:blks,sprog) =
+    case varInBlock ident blk of
+        Ok _ -> Bad ("Identifier " ++ id2Str ident ++ " is not a subprogram, it is a variable")
+        Bad _ -> 
+            case sprogInBlock ident blk of
+                Ok sprog -> Ok sprog
+                Bad _ -> findSprogInContext ident (blks,sprog)
+
+findFuncInContext ident ts ctx = case findSprogInContext ident ctx of
+    Ok (SPFunc ts' t)   | ts' == ts -> Ok t
+                        | otherwise -> Bad ("Parameters do not match")
+    Bad err -> Bad err
+
+findVarInContext ident ([],_) = Bad ("Variable " ++ id2Str ident ++ " not defined")
+findVarInContext ident (blk:blks,sprog) = 
+    case sprogInBlock ident blk of
+        Ok _ -> Bad ("Identifier " ++ id2Str ident ++ " is not a variable, it is a subprogram")
+        Bad _ -> 
+            case varInBlock ident blk of
+                Ok t -> Ok t
+                Bad _ -> findVarInContext ident (blks,sprog)
+
+sprogInContext ident sprog ctx = do
+    let ts = paramsSubProg sprog
+    sprog' <- findSprogInContext ident ctx
+    if sprog == sprog' then Ok sprog else
+        Bad ("Expected subprogram " ++ show sprog ++ " found subprogram " ++ show sprog')
+
+varInContext ident t ctx = do
+    t' <- findVarInContext ident ctx
+    if t == t' then Ok t else
+        Bad ("Expected type " ++ show t ++ " found type " ++ show t')
+
+sprogInBlock ident blk = 
+    case find (\(ident', _) -> ident' == ident) (fst blk) of
+        Just (_, sprog) -> Ok sprog
+        _ -> Bad ("Subprogram " ++ id2Str ident ++ " is not defined")
+
+varInBlock ident blk  = 
+    case find (\(ident', _) -> ident' == ident) (snd blk) of
+        Just (_, t) -> Ok t
+        _ -> Bad ("Variable " ++ id2Str ident ++ " is not defined")
+
+addSprogDecl2Block (ident, sprog) blk = case sprogInBlock ident blk of
+    Ok _ -> Bad ("Subprogram " ++ id2Str ident ++ " is already defined")
+    Bad _ -> 
+        case varInBlock ident blk of
+            Ok _ -> Bad ("Variable of the same name as " ++ id2Str ident ++ " is already defined")
+            Bad _ -> Ok ((ident, sprog) : fst blk, snd blk)
+
+addSprog2Block sprog vars blk = do
+    blk <- addSprogDecl2Block sprog blk
+    addVars2Block vars blk
+
+addVar2Block (ident, t) blk = case varInBlock ident blk of
+    Ok _ -> Bad ("Variable " ++ id2Str ident ++ " is already defined")
+    Bad _ ->
+        case sprogInBlock ident blk of
+            Ok _ -> Bad ("Subprogram of the same name as " ++ id2Str ident ++ " is already defined")
+            Bad _ -> Ok (fst blk, (ident, t) : snd blk)
+
+addVars2Block [] blk = Ok blk
+addVars2Block (v:vs) blk = do
+    blk <- addVar2Block v blk
+    addVars2Block vs blk
+
+retFunc (SPFunc _ t) t' = if t == t' then Ok t else Bad ("Expected type " ++ show t ++ " found type " ++ show t')
+retFunc _ _ = Bad "Not a function"
+
+paramsSubProg (SPFunc ts _) = ts
+paramsSubProg (SPProc ts) = ts
+
+func ident ts t = (ident, SPFunc ts t)
+proc ident ts = (ident, SPProc ts)
+}
+
+type program <- if {ctx} |- (FuncDecl f) then {Ok ctx} |- (Program Prog f);
+type funcdecl <- if {(newBlock ctx)} |- (VarDeclList vdecls), 
+    {let f = (func ident (map snd var1) t)}, 
+    {blk <- addSprog2Block f var1 ((head . fst) ctx)}, 
+    {(blk : fst ctx, f)} |- (Block block) then {Ok f} |- (FuncDecl FDecl ident vdecls t block);
+type funcdecl <- if {(newBlock ctx)} |- (VarDeclList vdecls), 
+    {let p = (proc ident (map snd var1))}, 
+    {blk <- addSprog2Block p var1 ((head . fst) ctx)}, 
+    {(blk : fst ctx, p)} |- (Block block) then {Ok p} |- (ProcDecl PDecl ident vdecls block);
+type vardecl <- {Ok (ident, t)} |- (VarDecl VDecl ident t);
+type vardecllistempty <- {Ok []} |- [VarDecl];
+type vardecllistcons <- if {ctx} |- (VarDecl v), {ctx} |- [VarDecl vs] then {Ok (var1 : var2)} |- [VarDecl v vs];
+type block <- if {(newBlock ctx)} |- [Decl decls], {(var1 : fst ctx, snd ctx)} |- [Stmnt stmnts] then {Ok var2} |- (Block Blck decls stmnts);
+
+-- Decl
+type declfunc <- if {ctx} |- (FuncDecl f) then {addSprogDecl2Block var1 ((head . fst) ctx)} |- (Decl DFunc f);
+type declproc <- if {ctx} |- (ProcDecl p) then {addSprogDecl2Block var1 ((head . fst) ctx)} |- (Decl DProc p);
+type declvar <- if {ctx} |- (VarDecl v) then {addVar2Block var1 ((head . fst) ctx)} |- (Decl DVar v);
+type decllistempty <- {Ok ((head . fst) ctx)} |- [Decl];
+type decllistcons <- if {ctx} |- (Decl d), {(var1 : (tail . fst) ctx, snd ctx)} |- [Decl ds] then {Ok (var2)} |- [Decl d ds];
+
+-- Stmnt
+type null <- {Ok ctx} |- (Stmnt SNull);
+type print <- if {ctx} |- (Expr e) t then {Ok ctx} |- (Stmnt SPrint e);
+type assign <- if {ctx} |- (Expr e) t, {varInContext ident t ctx} then {Ok ctx} |- (Stmnt SAssign ident e);
+type sif <- if {ctx} |- (Expr e) TNBool, {ctx} |- [Stmnt s1], {ctx} |- [Stmnt s2] then {Ok ctx} |- (Stmnt SIf e s1 s2);
+type while <- if {ctx} |- (Expr e) TNBool, {ctx} |- [Stmnt s] then {Ok ctx} |- (Stmnt SWhile e s);
+type sblock <- if {ctx} |- (Block block) then {Ok ctx} |- (Stmnt SBlock block);
+type scall <- if {ctx} |- [Expr exprs] ts, {sprogInContext ident (SPProc ts) ctx} then {Ok ctx} |- (Stmnt SCall ident exprs);
+type return <- if {ctx} |- (Expr e) t, {retFunc (snd (snd ctx)) t} then {Ok ctx} |- (Stmnt SReturn e);
+type stmntlistempty <- {Ok ctx} |- [Stmnt];
+type stmntlistcons <- if {ctx} |- (Stmnt s), {ctx} |- [Stmnt ss] then {Ok ctx} |- [Stmnt s ss];
+
+-- Expr
+type int <- {Ok ctx} |- (Expr EInt n) TNInt;
+type true <- {Ok ctx} |- (Expr ETrue) TNBool;
+type false <- {Ok ctx} |- (Expr EFalse) TNBool;
+type var <- if {t <- findVarInContext ident ctx} then {Ok ctx} |- (Expr EVar ident) t;
+type ecall <- if {ctx} |- [Expr exprs] ts, {t <- findFuncInContext ident ts ctx} then {Ok ctx} |- (Expr ECall ident exprs) t;
+type neg <- if {ctx} |- (Expr e) TNInt then {Ok ctx} |- (Expr ENeg e) TNInt;
+type not <- if {ctx} |- (Expr e) TNBool then {Ok ctx} |- (Expr ENot e) TNBool;
+type mul <- if {ctx} |- (Expr e1) TNInt, {ctx} |- (Expr e2) TNInt then {Ok ctx} |- (Expr EMul e1 e2) TNInt;
+type and <- if {ctx} |- (Expr e1) TNBool, {ctx} |- (Expr e2) TNBool then {Ok ctx} |- (Expr EAnd e1 e2) TNBool;
+type add <- if {ctx} |- (Expr e1) TNInt, {ctx} |- (Expr e2) TNInt then {Ok ctx} |- (Expr EAdd e1 e2) TNInt;
+type or <- if {ctx} |- (Expr e1) TNBool, {ctx} |- (Expr e2) TNBool then {Ok ctx} |- (Expr EOr e1 e2) TNBool;
+type eq <- if {ctx} |- (Expr e1) t, {ctx} |- (Expr e2) t then {Ok ctx} |- (Expr EEq e1 e2) TNBool;
+type lt <- if {ctx} |- (Expr e1) TNInt, {ctx} |- (Expr e2) TNInt then {Ok ctx} |- (Expr ELT e1 e2) TNBool;
+type exprlistempty <- if {let ts = [] :: [TypeName]} then {Ok ctx} |- [Expr] ts;
+type exprlistcons <- if {ctx} |- (Expr e) t, {ctx} |- [Expr exprs] ts', {let ts = t : ts'} then {Ok ctx} |- [Expr e exprs] ts;

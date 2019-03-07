@@ -18,11 +18,13 @@ SIf.     Stmnt ::= "if" Expr "then" [Stmnt] "else" [Stmnt] "end";
 SWhile.  Stmnt ::= "while" Expr "do" [Stmnt] "end";
 SBlock.  Stmnt ::= Block;
 SCall.   Stmnt ::= Ident "(" [Expr] ")";
+SReturn. Stmnt ::= "return" Expr;
 terminator nonempty Stmnt ";";
 
 EInt.    Expr4 ::= Integer;
 ETrue.   Expr4 ::= "true";
 EFalse.  Expr4 ::= "false";
+EVar.    Expr4 ::= Ident;
 
 ECall.   Expr3 ::= Ident "(" [Expr] ")";
 ENeg.    Expr3 ::= "neg" Expr4;

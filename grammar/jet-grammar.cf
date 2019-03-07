@@ -1,4 +1,4 @@
-token InlineHaskell '{' ((char - ["{}\\"]) | ('\\' ["{}\\nt"]))* '}';
+token InlineHaskell '{' ((char - ["{}"]) | ('\\' ["{}"]))* '}';
 TSystem. TypeSystem ::= InlineHaskell [TypeRule];
 TRule. TypeRule ::= "type" Ident "<-" TypePremises Judgement;
 
@@ -12,7 +12,7 @@ JSingle. Judgement ::= InlineHaskell "|-" "(" Ident Ident [Ident] ")" Type;
 
 -- In TypePremises we want to have size of [Ident] to be 1 in TypeRule we want
 -- [Ident] to be 2 such that we can create the pattern (x:xs)
-JList. Judgement ::= InlineHaskell "|-" "[" Ident Ident [Ident] "]" Type;
+JList. Judgement ::= InlineHaskell "|-" "[" Ident [Ident] "]" Type;
 
 TType. Type ::= Ident [Ident];
 TNone. Type ::= ;
