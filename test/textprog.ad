@@ -1,47 +1,5 @@
-function main(n : int) return int
-declare
-    result : int;
-    same : bool;
-
-    function factorial(n : int) return int
-    declare
-    begin
-        if n = 1 then
-            return n;
-        else
-            return factorial(n + neg true);
-        end;
-    end;
-
-    function isFactorial(n : int; fac : int) return bool
-    declare
-    begin
-        return factorial(n) = fac;
-    end;
-    function toInt(n : bool) return int
-    declare
-        x : int;
-    begin
-        if n then
-            x := 1;
-        else
-            x := 0;
-        end;
-        return x;
-    end;
+procedure main() 
+    x : int;
 begin
-    declare
-        x : int;
-        procedure other()
-        declare
-        begin
-            print x;
-        end;
-    begin
-        x := 5;
-        x := factorial(x);
-    end;
-    result := factorial(n);
-    same := isFactorial(5, result);
-    print toInt(same);
-end
+    null;
+end;

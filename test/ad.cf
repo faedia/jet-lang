@@ -1,10 +1,8 @@
-Prog.    Program ::= FuncDecl;
-FDecl.   FuncDecl ::= "function" Ident "(" [VarDecl] ")" "return" TypeName Block;
-PDecl.   ProcDecl ::= "procedure" Ident "(" [VarDecl] ")" Block;
+Prog.    Program ::= ProcDecl;
+FDecl.   FuncDecl ::= "function" Ident "(" [VarDecl] ")" "return" TypeName [Decl] "begin" [Stmnt] "end" ";";
+PDecl.   ProcDecl ::= "procedure" Ident "(" [VarDecl] ")" [Decl] "begin" [Stmnt] "end" ";";
 VDecl.   VarDecl  ::= Ident ":" TypeName; 
 separator VarDecl ";";
-
-Blck.    Block ::= "declare" [Decl] "begin" [Stmnt] "end";
 
 DFunc.   Decl ::= FuncDecl;
 DProc.   Decl ::= ProcDecl;
@@ -16,7 +14,7 @@ SPrint.  Stmnt ::= "print" Expr;
 SAssign. Stmnt ::= Ident ":=" Expr;
 SIf.     Stmnt ::= "if" Expr "then" [Stmnt] "else" [Stmnt] "end";
 SWhile.  Stmnt ::= "while" Expr "do" [Stmnt] "end";
-SBlock.  Stmnt ::= Block;
+SBlock.  Stmnt ::= "declare" [Decl] "begin" [Stmnt] "end";
 SCall.   Stmnt ::= Ident "(" [Expr] ")";
 SReturn. Stmnt ::= "return" Expr;
 terminator nonempty Stmnt ";";
@@ -43,3 +41,4 @@ separator Expr ",";
 
 TNBool.  TypeName ::= "bool";
 TNInt.   TypeName ::= "int";
+internal TNNone. TypeName ::= ;
