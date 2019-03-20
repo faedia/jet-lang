@@ -1,99 +1,45 @@
 {
-module TypeChecker where
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 
-import ErrM
-import Data.List (find)
-import Debug.Trace
+module TypeAd where
 
-import AbsAd
+import JetContext
+import qualified Data.Map as M 
 
-data SubProgram = SPFunc [TypeName] TypeName | SPProc [TypeName] | SNone
-    deriving (Eq, Ord, Show, Read)
+type Type = TypeName
 
-type Blk = ([(Ident, SubProgram)], [(Ident, TypeName)], (Ident, SubProgram))
-type Context = ([Blk], (Ident, SubProgram))
+data ContextKey = Proc Ident [Type] | Func Ident [Type] | Var Ident
 
-nullContext = newBlock ([], (Ident "", SNone))
-nullBlock = ([], [])
-newBlock (blocks,sprog) = (nullBlock : blocks, sprog)
+newtype Context = Context (Type, JetContextMap (Ident, [Type]) Type, JetContextMap (Ident, [Type]) Type, JetContextMap Ident Type)
 
-id2Str (Ident s) = s
+instance JetContextBase Context where
+    emptyContext = Context (TNNone, emptyContext, emptyContext, emptyContext)
+    newBlock (Context (t, p, f, v)) = Context (t, newBlock p, newBlock f, newBlock v)
 
-findSprogInContext ident ([],_) = Bad ("Subprogram " ++ id2Str ident ++ " not defined")
-findSprogInContext ident  (blk:blks,sprog) =
-    case varInBlock ident blk of
-        Ok _ -> Bad ("Identifier " ++ id2Str ident ++ " is not a subprogram, it is a variable")
-        Bad _ -> 
-            case sprogInBlock ident blk of
-                Ok sprog -> Ok sprog
-                Bad _ -> findSprogInContext ident (blks,sprog)
+instance JetContext Context ContextKey Type where
+    lookupBlock (Proc ident ts) (Context (_, p, _, _)) = lookupBlock (ident, ts) p
+    lookupBlock (Func ident ts) (Context (_, _, f, _)) = lookupBlock (ident, ts) f
+    lookupBlock (Var ident) (Context (_, _, _, v)) = lookupBlock ident v
+    lookupContext (Proc ident ts) (Context (_, p, _, _)) = lookupContext (ident, ts) p
+    lookupContext (Func ident ts) (Context (_, _, f, _)) = lookupContext (ident, ts) f
+    lookupContext (Var ident) (Context (_, _, _, v)) = lookupContext ident v
+    expandContext (Proc ident ts) t (Context (rt, p, f, v)) = do
+        p' <- expandContextIf (\(i, t) (JetContextMap (b:bs)) -> null (filter (\(i', t') -> i == i') (M.keys b))) (ident, ts) t p
+        return (Context (rt, p', f, v))
+    expandContext (Func ident ts) t (Context (rt, p, f, v)) = do
+        f' <- expandContextIf (\(i, t) (JetContextMap (b:bs)) -> null (filter (\(i', t') -> i == i') (M.keys b))) (ident, ts) t f
+        return (Context (rt, p, f', v))
+    expandContext (Var ident) t (Context (rt, p, f, v)) = do
+        v' <- expandContext ident t v
+        return (Context (rt, p, f, v'))
 
-findFuncInContext ident ts ctx = case findSprogInContext ident ctx of
-    Ok (SPFunc ts' t)   | ts' == ts -> Ok t
-                        | otherwise -> Bad ("Parameters do not match")
-    Bad err -> Bad err
+updateRetType :: Context -> Type -> Context
+updateRetType (Context (_, p, f, v)) t = Context (t, p, f, v)
 
-findVarInContext ident ([],_) = Bad ("Variable " ++ id2Str ident ++ " not defined")
-findVarInContext ident (blk:blks,sprog) = 
-    case sprogInBlock ident blk of
-        Ok _ -> Bad ("Identifier " ++ id2Str ident ++ " is not a variable, it is a subprogram")
-        Bad _ -> 
-            case varInBlock ident blk of
-                Ok t -> Ok t
-                Bad _ -> findVarInContext ident (blks,sprog)
-
-sprogInContext ident sprog ctx = do
-    let ts = paramsSubProg sprog
-    sprog' <- findSprogInContext ident ctx
-    if sprog == sprog' then Ok sprog else
-        Bad ("Expected subprogram " ++ show sprog ++ " found subprogram " ++ show sprog')
-
-varInContext ident t ctx = do
-    t' <- findVarInContext ident ctx
-    if t == t' then Ok t else
-        Bad ("Expected type " ++ show t ++ " found type " ++ show t')
-
-sprogInBlock ident blk = 
-    case find (\(ident', _) -> ident' == ident) (fst blk) of
-        Just (_, sprog) -> Ok sprog
-        _ -> Bad ("Subprogram " ++ id2Str ident ++ " is not defined")
-
-varInBlock ident blk  = 
-    case find (\(ident', _) -> ident' == ident) (snd blk) of
-        Just (_, t) -> Ok t
-        _ -> Bad ("Variable " ++ id2Str ident ++ " is not defined")
-
-addSprogDecl2Block (ident, sprog) blk = case sprogInBlock ident blk of
-    Ok _ -> Bad ("Subprogram " ++ id2Str ident ++ " is already defined")
-    Bad _ -> 
-        case varInBlock ident blk of
-            Ok _ -> Bad ("Variable of the same name as " ++ id2Str ident ++ " is already defined")
-            Bad _ -> Ok ((ident, sprog) : fst blk, snd blk)
-
-addSprog2Block sprog vars blk = do
-    blk <- addSprogDecl2Block sprog blk
-    addVars2Block vars blk
-
-addVar2Block (ident, t) blk = case varInBlock ident blk of
-    Ok _ -> Bad ("Variable " ++ id2Str ident ++ " is already defined")
-    Bad _ ->
-        case sprogInBlock ident blk of
-            Ok _ -> Bad ("Subprogram of the same name as " ++ id2Str ident ++ " is already defined")
-            Bad _ -> Ok (fst blk, (ident, t) : snd blk)
-
-addVars2Block [] blk = Ok blk
-addVars2Block (v:vs) blk = do
-    blk <- addVar2Block v blk
-    addVars2Block vs blk
-
-retFunc (SPFunc _ t) t' = if t == t' then Ok t else Bad ("Expected type " ++ show t ++ " found type " ++ show t')
-retFunc _ _ = Bad "Not a function"
-
-paramsSubProg (SPFunc ts _) = ts
-paramsSubProg (SPProc ts) = ts
-
-func ident ts t = (ident, SPFunc ts t)
-proc ident ts = (ident, SPProc ts)
+vdeclsTypes :: [VarDecl] -> [Type]
+vdeclsTypes = map (\(VDecl _ t) -> t)
 }
 
 type program <- if {ctx} |- (FuncDecl f) then {Ok ctx} |- (Program Prog f);
