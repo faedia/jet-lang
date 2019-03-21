@@ -1,6 +1,6 @@
 token InlineHaskell '{' ((char - ["{}"]) | ('\\' ["{}"]))* '}';
 TSystem. TypeSystem ::= InlineHaskell [TypeRule];
-TRule. TypeRule ::= "type" Ident "<-" TypePremises Judgement;
+TRule. TypeRule ::= "typerule" Ident "<-" TypePremises Judgement;
 
 TPremis. TypePremises ::= "if" [JudgementWSC] "then";
 TPNone.  TypePremises ::= ;

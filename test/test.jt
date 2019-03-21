@@ -1,27 +1,27 @@
 {
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
+\{-# LANGUAGE MultiParamTypeClasses #-\}
+\{-# LANGUAGE TypeSynonymInstances #-\}
+\{-# LANGUAGE FlexibleContexts #-\}
 
 module TypeAd where
 
 import JetContext
-import qualified Data.Map as M 
+import qualified Data.Map as M
+import AbsAd
 
 type Type = TypeName
 
-data ContextKey = Proc Ident [Type] | Func Ident [Type] | Var Ident
+data ContextKey = Proc Ident [Type] | Func Ident [Type] | Var Ident 
+    deriving (Eq, Ord, Show, Read)
 
 newtype Context = Context (Type, JetContextMap (Ident, [Type]) Type, JetContextMap (Ident, [Type]) Type, JetContextMap Ident Type)
+    deriving (Eq, Ord, Show, Read)
 
 instance JetContextBase Context where
     emptyContext = Context (TNNone, emptyContext, emptyContext, emptyContext)
     newBlock (Context (t, p, f, v)) = Context (t, newBlock p, newBlock f, newBlock v)
 
 instance JetContext Context ContextKey Type where
-    lookupBlock (Proc ident ts) (Context (_, p, _, _)) = lookupBlock (ident, ts) p
-    lookupBlock (Func ident ts) (Context (_, _, f, _)) = lookupBlock (ident, ts) f
-    lookupBlock (Var ident) (Context (_, _, _, v)) = lookupBlock ident v
     lookupContext (Proc ident ts) (Context (_, p, _, _)) = lookupContext (ident, ts) p
     lookupContext (Func ident ts) (Context (_, _, f, _)) = lookupContext (ident, ts) f
     lookupContext (Var ident) (Context (_, _, _, v)) = lookupContext ident v
@@ -38,56 +38,9 @@ instance JetContext Context ContextKey Type where
 updateRetType :: Context -> Type -> Context
 updateRetType (Context (_, p, f, v)) t = Context (t, p, f, v)
 
-vdeclsTypes :: [VarDecl] -> [Type]
-vdeclsTypes = map (\(VDecl _ t) -> t)
+vdeclsTypes :: Functor f => f VarDecl -> f Type
+vdeclsTypes = fmap (\(VDecl _ t) -> t)
 }
 
-type program <- if {ctx} |- (FuncDecl f) then {Ok ctx} |- (Program Prog f);
-type funcdecl <- if {(newBlock ctx)} |- (VarDeclList vdecls), 
-    {let f = (func ident (map snd var1) t)}, 
-    {blk <- addSprog2Block f var1 ((head . fst) ctx)}, 
-    {(blk : fst ctx, f)} |- (Block block) then {Ok f} |- (FuncDecl FDecl ident vdecls t block);
-type funcdecl <- if {(newBlock ctx)} |- (VarDeclList vdecls), 
-    {let p = (proc ident (map snd var1))}, 
-    {blk <- addSprog2Block p var1 ((head . fst) ctx)}, 
-    {(blk : fst ctx, p)} |- (Block block) then {Ok p} |- (ProcDecl PDecl ident vdecls block);
-type vardecl <- {Ok (ident, t)} |- (VarDecl VDecl ident t);
-type vardecllistempty <- {Ok []} |- [VarDecl];
-type vardecllistcons <- if {ctx} |- (VarDecl v), {ctx} |- [VarDecl vs] then {Ok (var1 : var2)} |- [VarDecl v vs];
-type block <- if {(newBlock ctx)} |- [Decl decls], {(var1 : fst ctx, snd ctx)} |- [Stmnt stmnts] then {Ok var2} |- (Block Blck decls stmnts);
-
--- Decl
-type declfunc <- if {ctx} |- (FuncDecl f) then {addSprogDecl2Block var1 ((head . fst) ctx)} |- (Decl DFunc f);
-type declproc <- if {ctx} |- (ProcDecl p) then {addSprogDecl2Block var1 ((head . fst) ctx)} |- (Decl DProc p);
-type declvar <- if {ctx} |- (VarDecl v) then {addVar2Block var1 ((head . fst) ctx)} |- (Decl DVar v);
-type decllistempty <- {Ok ((head . fst) ctx)} |- [Decl];
-type decllistcons <- if {ctx} |- (Decl d), {(var1 : (tail . fst) ctx, snd ctx)} |- [Decl ds] then {Ok (var2)} |- [Decl d ds];
-
--- Stmnt
-type null <- {Ok ctx} |- (Stmnt SNull);
-type print <- if {ctx} |- (Expr e) t then {Ok ctx} |- (Stmnt SPrint e);
-type assign <- if {ctx} |- (Expr e) t, {varInContext ident t ctx} then {Ok ctx} |- (Stmnt SAssign ident e);
-type sif <- if {ctx} |- (Expr e) TNBool, {ctx} |- [Stmnt s1], {ctx} |- [Stmnt s2] then {Ok ctx} |- (Stmnt SIf e s1 s2);
-type while <- if {ctx} |- (Expr e) TNBool, {ctx} |- [Stmnt s] then {Ok ctx} |- (Stmnt SWhile e s);
-type sblock <- if {ctx} |- (Block block) then {Ok ctx} |- (Stmnt SBlock block);
-type scall <- if {ctx} |- [Expr exprs] ts, {sprogInContext ident (SPProc ts) ctx} then {Ok ctx} |- (Stmnt SCall ident exprs);
-type return <- if {ctx} |- (Expr e) t, {retFunc (snd (snd ctx)) t} then {Ok ctx} |- (Stmnt SReturn e);
-type stmntlistempty <- {Ok ctx} |- [Stmnt];
-type stmntlistcons <- if {ctx} |- (Stmnt s), {ctx} |- [Stmnt ss] then {Ok ctx} |- [Stmnt s ss];
-
--- Expr
-type int <- {Ok ctx} |- (Expr EInt n) TNInt;
-type true <- {Ok ctx} |- (Expr ETrue) TNBool;
-type false <- {Ok ctx} |- (Expr EFalse) TNBool;
-type var <- if {t <- findVarInContext ident ctx} then {Ok ctx} |- (Expr EVar ident) t;
-type ecall <- if {ctx} |- [Expr exprs] ts, {t <- findFuncInContext ident ts ctx} then {Ok ctx} |- (Expr ECall ident exprs) t;
-type neg <- if {ctx} |- (Expr e) TNInt then {Ok ctx} |- (Expr ENeg e) TNInt;
-type not <- if {ctx} |- (Expr e) TNBool then {Ok ctx} |- (Expr ENot e) TNBool;
-type mul <- if {ctx} |- (Expr e1) TNInt, {ctx} |- (Expr e2) TNInt then {Ok ctx} |- (Expr EMul e1 e2) TNInt;
-type and <- if {ctx} |- (Expr e1) TNBool, {ctx} |- (Expr e2) TNBool then {Ok ctx} |- (Expr EAnd e1 e2) TNBool;
-type add <- if {ctx} |- (Expr e1) TNInt, {ctx} |- (Expr e2) TNInt then {Ok ctx} |- (Expr EAdd e1 e2) TNInt;
-type or <- if {ctx} |- (Expr e1) TNBool, {ctx} |- (Expr e2) TNBool then {Ok ctx} |- (Expr EOr e1 e2) TNBool;
-type eq <- if {ctx} |- (Expr e1) t, {ctx} |- (Expr e2) t then {Ok ctx} |- (Expr EEq e1 e2) TNBool;
-type lt <- if {ctx} |- (Expr e1) TNInt, {ctx} |- (Expr e2) TNInt then {Ok ctx} |- (Expr ELT e1 e2) TNBool;
-type exprlistempty <- if {let ts = [] :: [TypeName]} then {Ok ctx} |- [Expr] ts;
-type exprlistcons <- if {ctx} |- (Expr e) t, {ctx} |- [Expr exprs] ts', {let ts = t : ts'} then {Ok ctx} |- [Expr e exprs] ts;
+-- Statement Rules
+typerule AdNull <- {return ()} |- (Stmnt SNull);

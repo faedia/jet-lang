@@ -13,15 +13,16 @@ extra-source-files:
 executable jetgen
     main-is: Main.hs
     hs-source-dirs: src gen common
-    default-language: Haskell2010
-    other-modules: 
-        AbsJetGrammar,
-        LexJetGrammar,
-        ParJetGrammar,
-        ErrM,
-        JetCodeGen,
+    other-modules:
+        AbsJetGrammar
+        LexJetGrammar
+        ParJetGrammar
+        ErrM
+        JetCodeGen
         JetIntermediateRepr
+    default-language: Haskell2010
     build-depends:
         base >=4.11 && <4.13,
         array -any,
-        containers -any
+        containers -any,
+        split == 0.2.3.3
