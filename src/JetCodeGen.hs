@@ -5,12 +5,18 @@ import qualified ParJetGrammar as Par;
 import ErrM (Err);
 import qualified ErrM;
 import JetIntermediateRepr;
+import Data.List.Split
+import Data.List
 
 tab = "    "
 nltab = "\n" ++ tab
 
+replace old new = intercalate new . splitOn old
+escapeChar :: String -> String -> String
+escapeChar x = replace ("\\" ++ x) x
+
 h2Str :: Abs.InlineHaskell -> String
-h2Str (Abs.InlineHaskell s) = (tail . init) s
+h2Str (Abs.InlineHaskell s) = (escapeChar "{" . escapeChar "}" . tail . init) s
 
 expandConstructor :: (Abs.Ident, [Abs.Ident]) -> String
 expandConstructor (name, []) = id2Str name
