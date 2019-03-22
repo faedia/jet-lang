@@ -8,6 +8,7 @@ module TypeAd where
 import JetContext
 import qualified Data.Map as M
 import AbsAd
+import Debug.Trace
 
 type Type = TypeName
 
