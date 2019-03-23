@@ -15,7 +15,6 @@ replace :: Eq a => [a] -> [a] -> [a] -> [a]
 replace old new = intercalate new . splitOn old
 escapeChar :: String -> String -> String
 escapeChar x = replace ("\\" ++ x) x
-
 h2Str :: Abs.InlineHaskell -> String
 h2Str (Abs.InlineHaskell s) = (escapeChar "{" . escapeChar "}" . tail . init) s
 
@@ -41,7 +40,7 @@ genMonadCode = foldr (\m s -> genSingleMonad m ++ nltab ++ s) ""
 
 genTraceCode :: Abs.Ident -> (Abs.Ident, [Abs.Ident]) -> Abs.Type -> String -> String
 genTraceCode astName astConst t funcName =
-    "trace (\"" ++ funcName ++ " " ++ id2Str astName ++ " " ++ expandConstructor astConst ++ " : " ++ tStr ++ "\") Ok ()"
+    "trace (\"" ++ funcName ++ " " ++ id2Str astName ++ " \" ++ show " ++ expandConstructor astConst ++ " ++ \" : " ++ tStr ++ "\") return ()"
     where
         tStr = case t of 
             Abs.TNone -> "Valid"

@@ -42,6 +42,14 @@ getTypeVars (Abs.TType t []) = if isTypeVar t then S.singleton t else S.empty
 getTypeVars (Abs.TType t ts) = if isTypeVar t then error "typevar cannot take parameters" else
     foldr (\t' ts' -> if isTypeVar t' then S.insert t' ts' else ts') S.empty ts
 
+genAssert :: ([Abs.Ident], [Abs.Ident]) -> Abs.InlineHaskell
+genAssert (new, orig) = Abs.InlineHaskell ("{if " ++ show (map id2Str new) ++ " == " ++ show (map id2Str new) ++ "then return () else fail \"Iconsistent Types\"}")
+
+mapKnownVars :: Set Abs.Ident -> Set Abs.Ident -> ([Abs.Ident], [Abs.Ident])
+mapKnownVars tofind known = foldr (\ident (new , orig) -> if 
+    ident `S.member` known then 
+        (Abs.Ident ("jetT" ++ show  (length new)) : new, ident : orig)
+    else (new, orig)) ([], []) tofind
 
 genIntermediateRepr :: Abs.TypeSystem -> JetInterRepr
 genIntermediateRepr (Abs.TSystem s typerules) = JIntermediate s (genTypeRules typerules)
@@ -49,25 +57,25 @@ genIntermediateRepr (Abs.TSystem s typerules) = JIntermediate s (genTypeRules ty
 genTypeRules :: [Abs.TypeRule] -> [JetRuleRepr]
 genTypeRules = map genTypeRule
 
-genPremis :: Int -> Set Abs.Ident -> Abs.JudgementWSC -> JetMonad
-genPremis _ _ (Abs.JSideCond haskell) = JSideCond haskell
+genPremis :: Int -> Set Abs.Ident -> Abs.JudgementWSC -> [JetMonad]
+genPremis _ _ (Abs.JSideCond haskell) = [JSideCond haskell]
 genPremis count inferedTypeVars (Abs.JJudge (Abs.JSingle ctx name var [] t)) = let tvars = getTypeVars t in
     if not (null tvars) then
         if tvars `S.isSubsetOf` inferedTypeVars then
-            JCheckFunc count name ctx t var
-        else
-            JInferFunc name ctx var t
+            [JCheckFunc count name ctx t var]
+        else let varsMap = mapKnownVars tvars inferedTypeVars in
+            if (null . fst) varsMap then [JInferFunc name ctx var t] else [JInferFunc name ctx var t, JSideCond (genAssert varsMap)]
     else
-        JCheckFunc count name ctx t var
+        [JCheckFunc count name ctx t var]
 genPremis count inferedTypeVars (Abs.JJudge (Abs.JList ctx name vars t)) 
     | length vars == 1 = let funcname = idCat name "List"; var = head vars; tvars = getTypeVars t in
         if not (null tvars) then
             if tvars `S.isSubsetOf` inferedTypeVars then
-                JCheckFunc count funcname ctx t var
-            else
-                JInferFunc funcname ctx var t
+                [JCheckFunc count funcname ctx t var]
+            else let varsMap = mapKnownVars tvars inferedTypeVars in
+                if (null . fst) varsMap then [JInferFunc funcname ctx var t] else [JInferFunc funcname ctx var t, JSideCond (genAssert varsMap)]
         else
-            JCheckFunc count funcname ctx t var
+            [JCheckFunc count funcname ctx t var]
     | otherwise = error "Only one variable supported as parameter to list decl" 
 
 genPremises :: Int -> Set Abs.Ident -> Abs.TypePremises -> [JetMonad]
@@ -76,9 +84,9 @@ genPremises _ inferedTypeVars (Abs.TPremis []) = []
 genPremises count inferedTypeVars (Abs.TPremis (j:js)) = 
     let premis = genPremis count inferedTypeVars j in
         case premis of
-            JInferFunc _ _ _ t -> premis : genPremises count (getTypeVars t `S.union` inferedTypeVars) (Abs.TPremis js)
-            JCheckFunc {} -> premis : genPremises (count + 1) inferedTypeVars (Abs.TPremis js)
-            _ -> premis : genPremises count inferedTypeVars (Abs.TPremis js)
+            (JInferFunc _ _ _ t:_) -> premis ++ genPremises count (getTypeVars t `S.union` inferedTypeVars) (Abs.TPremis js)
+            [JCheckFunc {}] -> premis ++ genPremises (count + 1) inferedTypeVars (Abs.TPremis js)
+            _ -> premis ++ genPremises count inferedTypeVars (Abs.TPremis js)
 
 genTypeRule :: Abs.TypeRule -> JetRuleRepr
 genTypeRule (Abs.TRule name premises (Abs.JSingle ctx astType astConst astConstParams Abs.TNone)) = 
@@ -108,4 +116,3 @@ genTypeRule (Abs.TRule name premises (Abs.JList ctx astType vars t))
             JCheckListCons astType (head vars) (vars !! 1) (genPremises 1 S.empty premises) t ctx,
             JInferListCons astType (head vars) (vars !! 1) (genPremises 1 S.empty premises) t
         )
-    
