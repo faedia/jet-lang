@@ -1,7 +1,6 @@
 {
 \{-# LANGUAGE MultiParamTypeClasses #-\}
 \{-# LANGUAGE TypeSynonymInstances #-\}
-\{-# LANGUAGE FlexibleContexts #-\}
 
 module TypeAd where
 
@@ -44,3 +43,4 @@ vdeclsTypes = fmap (\(VDecl _ t) -> t)
 
 -- Statement Rules
 typerule AdNull <- {return ()} |- (Stmnt SNull);
+typerule AdOther <- if {ctx} |- (Expr e1) TArr t1 t2, {ctx} |- (Expr e2) t2 then {return ()} |- (Expr EArr e1 e2) t1;

@@ -32,8 +32,8 @@ genSingleMonad (JCheckFunc count name ctx (Abs.TType tname tparams) var) =
 genSingleMonad (JInferFunc name ctx var Abs.TNone) = 
     error "Infer functions require a type variable to return to"
 genSingleMonad (JInferFunc name ctx var (Abs.TType tname tparams)) 
-    | isTypeVar (Abs.TType tname tparams) = 
-        id2Str tname ++ " <- infer" ++ id2Str name ++ " " ++ h2Str ctx  ++ " " ++ id2Str var
+    | not (null (getTypeVars (Abs.TType tname tparams))) = 
+        expandConstructor (tname, tparams) ++ " <- infer" ++ id2Str name ++ " " ++ h2Str ctx  ++ " " ++ id2Str var
     | otherwise = error "Type must be a type variable to call infer"
 
 genMonadCode :: [JetMonad] -> String
@@ -47,7 +47,7 @@ genCheckCode (JCheck astName astConst monads Abs.TNone ctx) =
 genCheckCode (JCheck astName astConst monads (Abs.TType typeName typeParams) ctx) = 
     "check" ++ id2Str astName ++ " ctx " ++ expandConstructor astConst ++ " jetCheckType = do" ++ nltab 
     ++ genMonadCode monads
-    ++ "if jetCheckType == " ++ expandConstructor (typeName, typeParams) ++ " then " ++ h2Str ctx ++ " else Bad (\"Expected type \" ++ show jetCheckType ++ \" found type \" ++ show " ++ expandConstructor (typeName, typeParams) ++ ")\n"
+    ++ "if jetCheckType == " ++ expandConstructor (typeName, typeParams) ++ " then " ++ h2Str ctx ++ " else fail (\"Expected type \" ++ show jetCheckType ++ \" found type \" ++ show " ++ expandConstructor (typeName, typeParams) ++ ")\n"
 genCheckCode (JCheckListEmpty astName monads Abs.TNone ctx) =
     "check" ++ id2Str astName ++ "List ctx [] = do" ++ nltab
     ++ genMonadCode monads
@@ -63,11 +63,11 @@ genCheckCode (JCheckListCons astName item list monads Abs.TNone ctx) =
 genCheckCode (JCheckListEmpty astName monads (Abs.TType typeName typeParams) ctx) =
     "check" ++ id2Str astName ++ "List ctx [] jetCheckType = do" ++ nltab
     ++ genMonadCode monads
-    ++ "if jetCheckType == " ++ expandConstructor (typeName, typeParams) ++ " then " ++ h2Str ctx ++ " else Bad (\"Expected type \" ++ show jetCheckType ++ \" found type \" ++ show " ++ expandConstructor (typeName, typeParams) ++ ")\n"
+    ++ "if jetCheckType == " ++ expandConstructor (typeName, typeParams) ++ " then " ++ h2Str ctx ++ " else fail (\"Expected type \" ++ show jetCheckType ++ \" found type \" ++ show " ++ expandConstructor (typeName, typeParams) ++ ")\n"
 genCheckCode (JCheckListCons astName item list monads (Abs.TType typeName typeParams) ctx) =
     "check" ++ id2Str astName ++ "List ctx (" ++ id2Str item ++ ":" ++ id2Str list ++ ") jetCheckType= do" ++ nltab
     ++ genMonadCode monads
-    ++ "if jetCheckType == " ++ expandConstructor (typeName, typeParams) ++ " then " ++ h2Str ctx ++ " else Bad (\"Expected type \" ++ show jetCheckType ++ \" found type \" ++ show " ++ expandConstructor (typeName, typeParams) ++ ")\n"
+    ++ "if jetCheckType == " ++ expandConstructor (typeName, typeParams) ++ " then " ++ h2Str ctx ++ " else fail (\"Expected type \" ++ show jetCheckType ++ \" found type \" ++ show " ++ expandConstructor (typeName, typeParams) ++ ")\n"
     
 
 genInferCode :: JetInfer -> String
@@ -75,15 +75,15 @@ genInferCode JInferNone = ""
 genInferCode (JInfer astName astConst monads (Abs.TType typeName typeParams)) = 
     "infer" ++ id2Str astName ++ " ctx " ++ expandConstructor astConst ++ " = do" ++ nltab 
     ++ genMonadCode monads
-    ++ "Ok " ++ expandConstructor (typeName, typeParams) ++ "\n"
+    ++ "return " ++ expandConstructor (typeName, typeParams) ++ "\n"
 genInferCode (JInferListEmpty astName monads (Abs.TType typeName typeParams)) = 
     "infer" ++ id2Str astName ++ "List ctx [] = do" ++ nltab
     ++ genMonadCode monads
-    ++ "Ok " ++ expandConstructor (typeName, typeParams) ++ "\n"
+    ++ "return " ++ expandConstructor (typeName, typeParams) ++ "\n"
 genInferCode (JInferListCons astName item list monads (Abs.TType typeName typeParams)) = 
     "infer" ++ id2Str astName ++ "List ctx ("++ id2Str item ++ ":" ++ id2Str list ++ ") = do" ++ nltab
     ++ genMonadCode monads
-    ++ "Ok " ++ expandConstructor (typeName, typeParams) ++ "\n"
+    ++ "return " ++ expandConstructor (typeName, typeParams) ++ "\n"
 
 genCode :: JetInterRepr -> String
 genCode (JIntermediate haskell rules) = let checkRules = map fst rules; inferRules = map snd rules in 
