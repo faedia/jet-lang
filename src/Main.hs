@@ -7,7 +7,7 @@ import ErrM
 
 run :: String -> String
 run s = case (pTypeSystem . myLexer) s of
-    Ok tree -> (genCode . genIntermediateRepr) tree
+    Ok tree -> (genCode True . genIntermediateRepr) tree
     Bad err -> error err
 
 main :: IO ()
