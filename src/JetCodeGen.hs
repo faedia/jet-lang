@@ -25,14 +25,14 @@ expandConstructor (name, params) = "(" ++ expandConstructor (name, []) ++ " " ++
 genSingleMonad :: JetMonad -> String
 genSingleMonad (JSideCond haskell) = h2Str haskell
 genSingleMonad (JCheckFunc count name ctx Abs.TNone var) = 
-    "var" ++ show count ++ " <- check" ++ id2Str name ++ " " ++ h2Str ctx  ++ " " ++ id2Str var
+    "var" ++ show count ++ " <- check" ++ id2Str name ++ " " ++ id2Str var ++ " " ++ h2Str ctx
 genSingleMonad (JCheckFunc count name ctx (Abs.TType tname tparams) var) =
-    "var" ++ show count ++ " <- check" ++ id2Str name ++ " " ++ h2Str ctx  ++ " " ++ id2Str var ++ " " ++ expandConstructor (tname, tparams)
+    "var" ++ show count ++ " <- check" ++ id2Str name ++ " " ++ id2Str var ++ " " ++ expandConstructor (tname, tparams) ++ " " ++ h2Str ctx
 genSingleMonad (JInferFunc name ctx var Abs.TNone) = 
     error "Infer functions require a type variable to return to"
 genSingleMonad (JInferFunc name ctx var (Abs.TType tname tparams)) 
     | not (null (getTypeVars (Abs.TType tname tparams))) = 
-        expandConstructor (tname, tparams) ++ " <- infer" ++ id2Str name ++ " " ++ h2Str ctx  ++ " " ++ id2Str var
+        expandConstructor (tname, tparams) ++ " <- infer" ++ id2Str name ++ " " ++ id2Str var ++ " " ++ h2Str ctx
     | otherwise = error "Type must be a type variable to call infer"
 
 genMonadCode :: [JetMonad] -> String
@@ -49,37 +49,37 @@ genTraceCode astName astConst t funcName =
 
 genCheckCode :: Bool -> JetCheck -> String
 genCheckCode tr (JCheck astName astConst monads Abs.TNone ctx) =
-    "check" ++ id2Str astName ++ " ctx " ++ expandConstructor astConst ++ " = do" ++ nltab
+    "check" ++ id2Str astName ++ " " ++ expandConstructor astConst ++ " ctx = do" ++ nltab
     ++ (if tr then genTraceCode astName astConst Abs.TNone "check" ++ nltab else "") 
     ++ genMonadCode monads
     ++ h2Str ctx ++ "\n"
 genCheckCode tr (JCheck astName astConst monads (Abs.TType typeName typeParams) ctx) = 
-    "check" ++ id2Str astName ++ " ctx " ++ expandConstructor astConst ++ " jetCheckType = do" ++ nltab 
+    "check" ++ id2Str astName ++ " " ++ expandConstructor astConst ++ " jetCheckType ctx = do" ++ nltab 
     ++ (if tr then genTraceCode astName astConst (Abs.TType typeName typeParams) "check" ++ nltab else "") 
     ++ genMonadCode monads
     ++ "if jetCheckType == " ++ expandConstructor (typeName, typeParams) ++ " then " ++ h2Str ctx ++ " else fail (\"Expected type \" ++ show jetCheckType ++ \" found type \" ++ show " ++ expandConstructor (typeName, typeParams) ++ ")\n"
 genCheckCode tr (JCheckListEmpty astName monads Abs.TNone ctx) =
-    "check" ++ id2Str astName ++ "List ctx [] = do" ++ nltab
+    "check" ++ id2Str astName ++ "List [] ctx = do" ++ nltab
     ++ (if tr then genTraceCode astName (Abs.Ident "", []) Abs.TNone "checkList" ++ nltab else "") 
     ++ genMonadCode monads
     ++ h2Str ctx ++ "\n"
 genCheckCode tr (JCheckListSingleton astName item monads Abs.TNone ctx) =
-    "check" ++ id2Str astName ++ "List ctx [" ++ id2Str item ++ "] = do" ++ nltab
+    "check" ++ id2Str astName ++ "List [" ++ id2Str item ++ "] ctx = do" ++ nltab
     ++ (if tr then genTraceCode astName (item, []) Abs.TNone "checkList" ++ nltab else "") 
     ++ genMonadCode monads
     ++ h2Str ctx ++ "\n"
 genCheckCode tr (JCheckListCons astName item list monads Abs.TNone ctx) =
-    "check" ++ id2Str astName ++ "List ctx (" ++ id2Str item ++ ":" ++ id2Str list ++ ") = do" ++ nltab
+    "check" ++ id2Str astName ++ "List (" ++ id2Str item ++ ":" ++ id2Str list ++ ") ctx = do" ++ nltab
     ++ (if tr then genTraceCode astName (item, [list]) Abs.TNone "checkList" ++ nltab else "") 
     ++ genMonadCode monads
     ++ h2Str ctx ++ "\n"
 genCheckCode tr (JCheckListEmpty astName monads (Abs.TType typeName typeParams) ctx) =
-    "check" ++ id2Str astName ++ "List ctx [] jetCheckType = do" ++ nltab
+    "check" ++ id2Str astName ++ "List [] jetCheckType ctx = do" ++ nltab
     ++ (if tr then genTraceCode astName (Abs.Ident "", []) Abs.TNone "checkList" ++ nltab else "") 
     ++ genMonadCode monads
     ++ "if jetCheckType == " ++ expandConstructor (typeName, typeParams) ++ " then " ++ h2Str ctx ++ " else fail (\"Expected type \" ++ show jetCheckType ++ \" found type \" ++ show " ++ expandConstructor (typeName, typeParams) ++ ")\n"
 genCheckCode tr (JCheckListCons astName item list monads (Abs.TType typeName typeParams) ctx) =
-    "check" ++ id2Str astName ++ "List ctx (" ++ id2Str item ++ ":" ++ id2Str list ++ ") jetCheckType= do" ++ nltab
+    "check" ++ id2Str astName ++ "List (" ++ id2Str item ++ ":" ++ id2Str list ++ ") jetCheckType ctx = do" ++ nltab
     ++ (if tr then genTraceCode astName (item, [list]) Abs.TNone "checkList" ++ nltab else "") 
     ++ genMonadCode monads
     ++ "if jetCheckType == " ++ expandConstructor (typeName, typeParams) ++ " then " ++ h2Str ctx ++ " else fail (\"Expected type \" ++ show jetCheckType ++ \" found type \" ++ show " ++ expandConstructor (typeName, typeParams) ++ ")\n"
@@ -88,17 +88,17 @@ genCheckCode tr (JCheckListCons astName item list monads (Abs.TType typeName typ
 genInferCode :: Bool -> JetInfer -> String
 genInferCode tr JInferNone = ""
 genInferCode tr (JInfer astName astConst monads (Abs.TType typeName typeParams)) = 
-    "infer" ++ id2Str astName ++ " ctx " ++ expandConstructor astConst ++ " = do" ++ nltab 
+    "infer" ++ id2Str astName ++ " " ++ expandConstructor astConst ++ " ctx = do" ++ nltab 
     ++ (if tr then genTraceCode astName astConst (Abs.TType typeName typeParams) "infer" ++ nltab else "") 
     ++ genMonadCode monads
     ++ "return " ++ expandConstructor (typeName, typeParams) ++ "\n"
 genInferCode tr (JInferListEmpty astName monads (Abs.TType typeName typeParams)) = 
-    "infer" ++ id2Str astName ++ "List ctx [] = do" ++ nltab
+    "infer" ++ id2Str astName ++ "List [] ctx = do" ++ nltab
     ++ (if tr then genTraceCode astName (Abs.Ident "", []) (Abs.TType typeName typeParams) "infer" ++ nltab else "") 
     ++ genMonadCode monads
     ++ "return " ++ expandConstructor (typeName, typeParams) ++ "\n"
 genInferCode tr (JInferListCons astName item list monads (Abs.TType typeName typeParams)) = 
-    "infer" ++ id2Str astName ++ "List ctx ("++ id2Str item ++ ":" ++ id2Str list ++ ") = do" ++ nltab
+    "infer" ++ id2Str astName ++ "List ("++ id2Str item ++ ":" ++ id2Str list ++ ") ctx = do" ++ nltab
     ++ (if tr then genTraceCode astName (item, [list]) (Abs.TType typeName typeParams) "infer" ++ nltab else "") 
     ++ genMonadCode monads
     ++ "return " ++ expandConstructor (typeName, typeParams) ++ "\n"

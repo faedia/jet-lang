@@ -1,0 +1,47 @@
+{
+\{-# LANGUAGE MultiParamTypeClasses #-\}
+\{-# LANGUAGE TypeSynonymInstances #-\}
+
+module TypeAd where
+
+import JetContext
+import JetErrorM
+import qualified Data.Map as M
+import AbsAd
+import Debug.Trace
+
+type Type = TypeName
+
+data ContextKey = Proc Ident [Type] | Func Ident [Type] | Var Ident 
+    deriving (Eq, Ord, Show, Read)
+
+newtype Context = Context (Type, JetContextMap (Ident, [Type]) Type, JetContextMap (Ident, [Type]) Type, JetContextMap Ident Type)
+    deriving (Eq, Ord, Show, Read)
+
+instance JetContextBase Context where
+    emptyContext = Context (TNNone, emptyContext, emptyContext, emptyContext)
+    newBlock (Context (t, p, f, v)) = Context (t, newBlock p, newBlock f, newBlock v)
+
+instance JetContext Context ContextKey Type where
+    lookupContext (Proc ident ts) (Context (_, p, _, _)) = lookupContext (ident, ts) p
+    lookupContext (Func ident ts) (Context (_, _, f, _)) = lookupContext (ident, ts) f
+    lookupContext (Var ident) (Context (_, _, _, v)) = lookupContext ident v
+    expandContext (Proc ident ts) t (Context (rt, p, f, v)) = do
+        p' <- expandContextIf (\(i, t) (JetContextMap (b:bs)) -> null (filter (\(i', t') -> i == i') (M.keys b))) (ident, ts) t p
+        return (Context (rt, p', f, v))
+    expandContext (Func ident ts) t (Context (rt, p, f, v)) = do
+        f' <- expandContextIf (\(i, t) (JetContextMap (b:bs)) -> null (filter (\(i', t') -> i == i') (M.keys b))) (ident, ts) t f
+        return (Context (rt, p, f', v))
+    expandContext (Var ident) t (Context (rt, p, f, v)) = do
+        v' <- expandContext ident t v
+        return (Context (rt, p, f, v'))
+
+updateRetType :: Context -> Type -> Context
+updateRetType (Context (_, p, f, v)) t = Context (t, p, f, v)
+
+vdeclsTypes :: Functor f => f VarDecl -> f Type
+vdeclsTypes = fmap (\(VDecl _ t) -> t)
+}
+
+-- Statement Rules
+typerule AdNull <- {return ()} |- (Stmnt SNull);
