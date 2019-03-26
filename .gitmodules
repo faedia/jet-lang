@@ -1,0 +1,3 @@
+[submodule "test/SimplyTypedLambdaCalculus"]
+	path = test/SimplyTypedLambdaCalculus
+	url = git@github.com:steventomlinson/SimplyTypedLambdaCalculus
