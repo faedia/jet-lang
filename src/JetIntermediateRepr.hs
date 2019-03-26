@@ -89,14 +89,14 @@ genPremises count inferedTypeVars (Abs.TPremis (j:js)) =
             _ -> premis ++ genPremises count inferedTypeVars (Abs.TPremis js)
 
 genTypeRule :: Abs.TypeRule -> JetRuleRepr
-genTypeRule (Abs.TRule name premises (Abs.JSingle ctx astType astConst astConstParams Abs.TNone)) = 
+genTypeRule (Abs.TRule name premises (Abs.CSingle astType astConst astConstParams Abs.TNone) ctx) = 
     (JCheck astType (astConst, astConstParams) (genPremises 1 S.empty premises) Abs.TNone ctx, JInferNone)
-genTypeRule (Abs.TRule name premises (Abs.JSingle ctx astType astConst astConstParams t)) = 
+genTypeRule (Abs.TRule name premises (Abs.CSingle astType astConst astConstParams t) ctx) = 
     (
         JCheck astType (astConst, astConstParams) (genPremises 1 S.empty premises) t ctx,
         JInfer astType (astConst, astConstParams) (genPremises 1 S.empty premises) t
     )
-genTypeRule (Abs.TRule name premises (Abs.JList ctx astType vars Abs.TNone))
+genTypeRule (Abs.TRule name premises (Abs.CList astType vars Abs.TNone) ctx)
     | null vars = 
         (JCheckListEmpty astType (genPremises 1 S.empty premises) Abs.TNone ctx, JInferNone)
     | length vars == 1 = 
@@ -104,7 +104,7 @@ genTypeRule (Abs.TRule name premises (Abs.JList ctx astType vars Abs.TNone))
     | length vars == 2 = 
         (JCheckListCons astType (head vars) (vars !! 1) (genPremises 1 S.empty premises) Abs.TNone ctx, JInferNone)
     | otherwise = error "Invalid number of arguments to list constructor"
-genTypeRule (Abs.TRule name premises (Abs.JList ctx astType vars t))
+genTypeRule (Abs.TRule name premises (Abs.CList astType vars t) ctx)
     | null vars = 
         (
             JCheckListEmpty astType (genPremises 1 S.empty premises) t ctx,

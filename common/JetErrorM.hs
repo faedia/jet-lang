@@ -14,6 +14,7 @@ instance Applicative JetError where
 
 instance Monad JetError where
     return = pure
+    fail = Fail
     Succ a >>= f = f a
     Fail s >>= _ = Fail s
 

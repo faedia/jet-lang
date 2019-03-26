@@ -44,4 +44,4 @@ vdeclsTypes = fmap (\(VDecl _ t) -> t)
 }
 
 -- Statement Rules
-typerule AdNull <- {return ()} |- (Stmnt SNull);
+typerule AdNull <- (Stmnt SNull) return {return ()};

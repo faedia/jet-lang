@@ -1,9 +1,12 @@
 token InlineHaskell '{' ((char - ["{}"]) | ('\\' ["{}"]))* '}';
 TSystem. TypeSystem ::= InlineHaskell [TypeRule];
-TRule. TypeRule ::= "typerule" Ident "<-" TypePremises Judgement;
+TRule. TypeRule ::= "typerule" Ident "<-" TypePremises Consequent "return" InlineHaskell;
 
 TPremis. TypePremises ::= "if" [JudgementWSC] "then";
 TPNone.  TypePremises ::= ;
+
+CSingle. Consequent ::= "(" Ident Ident [Ident] ")" Type;
+CList. Consequent ::= "[" Ident [Ident] "]" Type;
 
 JSideCond. JudgementWSC ::= InlineHaskell;
 JJudge. JudgementWSC ::= Judgement;
@@ -14,7 +17,7 @@ JSingle. Judgement ::= InlineHaskell "|-" "(" Ident Ident [Ident] ")" Type;
 -- [Ident] to be 2 such that we can create the pattern (x:xs)
 JList. Judgement ::= InlineHaskell "|-" "[" Ident [Ident] "]" Type;
 
-TType. Type ::= Ident [Ident];
+TType. Type ::= ":" Ident [Ident];
 TNone. Type ::= ;
 
 terminator TypeRule ";" ;
