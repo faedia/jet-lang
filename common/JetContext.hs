@@ -5,11 +5,12 @@ module JetContext where
 
 import Data.Map (Map)
 import qualified Data.Map as M
+import JetErrorM
 
 newtype JetContextMap k t = JetContextMap [Map k t]
     deriving (Eq, Ord, Show, Read)
 
-insertUnique :: Ord k => k -> a -> Map k a -> Maybe (Map k a)
+insertUnique :: Ord k => k -> a -> Map k a -> JetError (Map k a)
 insertUnique k v m = case M.lookup k m of
     Just _ -> fail "Unable to insert duplicate entries"
     Nothing -> return (M.insert k v m)
@@ -19,16 +20,16 @@ class JetContextBase t where
     newBlock :: t -> t
 
 class JetContextBase r => JetContext r k t where
-    lookupContext :: Ord k => k -> r -> Maybe t
-    expandContext :: Ord k => k -> t -> r -> Maybe r
-    expandContextIf :: Ord k => (k -> r -> Bool) -> k -> t -> r -> Maybe r
+    lookupContext :: Ord k => k -> r -> JetError t
+    expandContext :: Ord k => k -> t -> r -> JetError r
+    expandContextIf :: Ord k => (k -> r -> Bool) -> k -> t -> r -> JetError r
 
 instance JetContextBase (JetContextMap a b) where
     emptyContext = JetContextMap [M.empty]
     newBlock (JetContextMap blocks) = JetContextMap (M.empty : blocks)
 
 instance JetContext (JetContextMap a b) a b where
-    lookupContext key (JetContextMap blocks) = M.lookup key (M.unions blocks)
+    lookupContext key (JetContextMap blocks) = maybe2Error "Lookup error" $ M.lookup key (M.unions blocks)
     expandContext key t (JetContextMap (block:blocks)) = do
         block' <- insertUnique key t block
         return (JetContextMap (block':blocks))

@@ -25,4 +25,8 @@ executable jetgen
         base >=4.11 && <4.13,
         array -any,
         containers -any,
-        split == 0.2.3.3
+        split -any,
+        filepath -any,
+        directory -any,
+        file-embed -any,
+        bytestring -any
