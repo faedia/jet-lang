@@ -41,6 +41,7 @@ getTypeVars :: Abs.Type -> Set Abs.Ident
 getTypeVars (Abs.TType t []) = if isTypeVar t then S.singleton t else S.empty
 getTypeVars (Abs.TType t ts) = if isTypeVar t then error "typevar cannot take parameters" else
     foldr (\t' ts' -> if isTypeVar t' then S.insert t' ts' else ts') S.empty ts
+getTypeVars Abs.TNone = S.empty
 
 genAssert :: ([Abs.Ident], [Abs.Ident]) -> Abs.InlineHaskell
 genAssert (new, orig) = Abs.InlineHaskell ("{if " ++ show (map id2Str new) ++ " == " ++ show (map id2Str new) ++ "then return () else fail \"Iconsistent Types\"}")

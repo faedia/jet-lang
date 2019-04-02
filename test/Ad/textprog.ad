@@ -1,5 +1,23 @@
-procedure main() 
+type pair = record a : int; b : int end;
+type pairOfPair = record a : pair; b : pair; c : bool end;
+type pairs = record a : (record a : int; b : int end); b : (record a : int; b : int end); c : bool end;
+type b = bool;
+
+procedure main()
+    p : pair;
     x : int;
+    ps : pairOfPair;
+    dummy : b;
+
+    function foo(x : bool; y : pairs) return bool
+    begin
+        return x = (y.b.a = p.b);
+    end;
 begin
+    p.a := x;
+    ps.a.b := 7;
+    ps.c := false;
+    main();
+    dummy := foo(true, ps);
     null;
 end;

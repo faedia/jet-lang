@@ -1,8 +1,7 @@
 {
-\{-# LANGUAGE MultiParamTypeClasses #-\}
-\{-# LANGUAGE TypeSynonymInstances #-\}
+\{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleContexts #-\}
 
-module TypeAd where
+module TypAd where
 
 import JetContext
 import JetErrorM
@@ -12,36 +11,100 @@ import Debug.Trace
 
 type Type = TypeName
 
-data ContextKey = Proc Ident [Type] | Func Ident [Type] | Var Ident 
+data ContextKey = Proc Ident [Type] | Func Ident [Type] | Var Ident | Typ Ident
     deriving (Eq, Ord, Show, Read)
 
-newtype Context = Context (Type, JetContextMap (Ident, [Type]) Type, JetContextMap (Ident, [Type]) Type, JetContextMap Ident Type)
+newtype Context = Context (Type, JetContextMap (Ident, [Type]) Type, JetContextMap (Ident, [Type]) Type, JetContextMap Ident Type, JetContextMap Ident Type)
     deriving (Eq, Ord, Show, Read)
 
 instance JetContextBase Context where
-    emptyContext = Context (TNNone, emptyContext, emptyContext, emptyContext)
-    newBlock (Context (t, p, f, v)) = Context (t, newBlock p, newBlock f, newBlock v)
+    emptyContext = Context (TNNone, emptyContext, emptyContext, emptyContext, emptyContext)
+    newBlock (Context (t, p, f, v, s)) = Context (t, newBlock p, newBlock f, newBlock v, s)
 
 instance JetContext Context ContextKey Type where
-    lookupContext (Proc ident ts) (Context (_, p, _, _)) = lookupContext (ident, ts) p
-    lookupContext (Func ident ts) (Context (_, _, f, _)) = lookupContext (ident, ts) f
-    lookupContext (Var ident) (Context (_, _, _, v)) = lookupContext ident v
-    expandContext (Proc ident ts) t (Context (rt, p, f, v)) = do
+    lookupContext (Proc ident ts) (Context (_, p, _, _, _)) = lookupContext (ident, ts) p
+    lookupContext (Func ident ts) (Context (_, _, f, _, _)) = lookupContext (ident, ts) f
+    lookupContext (Var ident) (Context (_, _, _, v, _)) = lookupContext ident v
+    lookupContext (Typ ident) (Context (_, _, _, _, s)) = lookupContext ident s
+    expandContext (Proc ident ts) t (Context (rt, p, f, v, s)) = do
         p' <- expandContextIf (\(i, t) (JetContextMap (b:bs)) -> null (filter (\(i', t') -> i == i') (M.keys b))) (ident, ts) t p
-        return (Context (rt, p', f, v))
-    expandContext (Func ident ts) t (Context (rt, p, f, v)) = do
+        return (Context (rt, p', f, v, s))
+    expandContext (Func ident ts) t (Context (rt, p, f, v, s)) = do
         f' <- expandContextIf (\(i, t) (JetContextMap (b:bs)) -> null (filter (\(i', t') -> i == i') (M.keys b))) (ident, ts) t f
-        return (Context (rt, p, f', v))
-    expandContext (Var ident) t (Context (rt, p, f, v)) = do
+        return (Context (rt, p, f', v, s))
+    expandContext (Var ident) t (Context (rt, p, f, v, s)) = do
         v' <- expandContext ident t v
-        return (Context (rt, p, f, v'))
+        return (Context (rt, p, f, v', s))
+    expandContext (Typ ident) t (Context (rt, p, f, v, s)) = do
+        s' <- expandContext ident t s
+        return (Context (rt, p, f, v, s'))
+
+makeCheckError e t1 t2 = "Type error"
+makeCheckErrorList _ _ _ = "Type error"
+makeInferError _ _ = "Type error"
 
 updateRetType :: Context -> Type -> Context
-updateRetType (Context (_, p, f, v)) t = Context (t, p, f, v)
+updateRetType (Context (_, p, f, v, s)) t = Context (t, p, f, v, s)
+getRetType :: Context -> Type
+getRetType (Context (t, _, _, _, _)) = t
 
 vdeclsTypes :: Functor f => f VarDecl -> f Type
 vdeclsTypes = fmap (\(VDecl _ t) -> t)
 }
 
+typerule AdProg <- if {ctx} |- [TypeDecl ts], {var1} |- (ProcDecl p) then (Program Prog ts p) return {Succ ()};
+
+--Decls
+typerule AdTypeDecl <- (TypeDecl TDecl ident t) return {expandContext (Typ ident) t ctx};
+typerule AdFuncDecl <- if {ctx} |- [ConvVdecls vdecls], {let vts = vdeclsTypes var1}, {ctx} |- [Type vts] : ts, {(newBlock ctx)} |- [VarDecl vdecls], 
+        {var2} |- [Decl decls], {=<< expandContext (Func ident ts) t (updateRetType var3 t)} |- [Stmnt stmnts] then 
+    (FuncDecl FDecl ident vdecls t decls stmnts) return {expandContext (Func ident ts) t ctx};
+typerule AdProcDecl <- if {ctx} |- [ConvVdecls vdecls], {let vts = vdeclsTypes var1}, {ctx} |- [Type vts] : ts, {(newBlock ctx)} |- [VarDecl vdecls], 
+        {var2} |- [Decl decls], {=<< expandContext (Proc ident ts) TNNone (updateRetType var3 TNNone)} |- [Stmnt stmnts] then 
+    (ProcDecl PDecl ident vdecls decls stmnts) return {expandContext (Proc ident ts) TNNone ctx};
+typerule AdVarDecl <- (VarDecl VDecl ident t) return {expandContext (Var ident) t ctx};
+typerule AdDFunc <- if {ctx} |- (FuncDecl f) then (Decl DFunc f) return {Succ var1};
+typerule AdDProc <- if {ctx} |- (ProcDecl p) then (Decl DProc p) return {Succ var1};
+typerule AdDVar <- if {ctx} |- (VarDecl v) then (Decl DVar v) return {Succ var1};
+
+typerule TTypeDeclList  <- if {ctx} |- (TypeDecl t), {var1} |- [TypeDecl ts] then [TypeDecl t ts] return {Succ var2}; typerule TTypeDeclList <- [TypeDecl] return {Succ ctx};
+typerule TVarDeclList <- if {ctx} |- (VarDecl v), {var1} |- [VarDecl vs] then [VarDecl v vs] return {Succ var2}; typerule TVarDeclList <- [VarDecl] return {Succ ctx};
+typerule TDeclList <- if {ctx} |- (Decl d), {var1} |- [Decl ds] then [Decl d ds] return {Succ var2}; typerule TDeclList <- [Decl] return {Succ ctx};
+
 -- Statement Rules
-typerule AdNull <- (Stmnt SNull) return {return ()};
+typerule AdNull <- (Stmnt SNull) return {Succ ()};
+typerule AdPrint <- if {ctx} |- (Expr e) : t then (Stmnt SPrint e) return {Succ ()};
+typerule AdAssign <- if {let identExpr = EVar ident}, {ctx} |- (Expr identExpr) : t, {ctx} |- (Expr e) : t then (Stmnt SAssign ident e) return {Succ ()};
+typerule AdRcAsgn <- if {ctx} |- (Expr e1) : t, {ctx} |- (Type t) : TNRec vdecls, {(newBlock ctx)} |- [VarDecl vdecls], {t <- lookupContext (Var ident) var1}, {ctx} |- (Type t) : t', {ctx} |- (Expr e2) : t' then (Stmnt SRcAsgn e1 ident e2) return {Succ ()};
+typerule AdIf <- if {ctx} |- (Expr e) : TNBool, {ctx} |- [Stmnt s1], {ctx} |- [Stmnt s2] then (Stmnt SIf e s1 s2) return {Succ ()};
+typerule AdWhile <- if {ctx} |- (Expr e) : TNBool, {ctx} |- [Stmnt s] then (Stmnt SWhile e s) return {Succ ()};
+typerule AdBlock <- if {(newBlock ctx)} |- [Decl ds], {var1} |- [Stmnt stmnts] then (Stmnt SBlock ds stmnts) return {Succ ()};
+typerule AdSCall <- if {ctx} |- [Expr es] : ts, {lookupContext (Proc ident ts) ctx :: JetError Type} then (Stmnt SCall ident es) return {Succ ()};
+typerule AdReturn <- if {ctx} |- (Expr e) : t, {if t == getRetType ctx then Succ () else fail "Type error"} then (Stmnt SReturn e) return {Succ ()};
+typerule AdStmntList <- if {ctx} |- (Stmnt s), {ctx} |- [Stmnt stmnts] then [Stmnt s stmnts] return {Succ ()}; typerule AdStmntList <- [Stmnt] return {Succ ()};
+
+--Expression Rules
+typerule AdTrueT <- (Expr ETrue) : TNBool return {Succ ()};
+typerule AdFalseT <- (Expr EFalse) : TNBool return {Succ ()};
+typerule AdIntT <- (Expr EInt n) : TNInt return {Succ ()};
+typerule AdNotT <- if {ctx} |- (Expr e) : TNBool then (Expr ENot e) : TNBool return {Succ ()};
+typerule AdNegT <- if {ctx} |- (Expr e) : TNInt then (Expr ENeg e) : TNInt return {Succ ()};
+typerule AdAndT <- if {ctx} |- (Expr e1) : TNBool, {ctx} |- (Expr e2) : TNBool then (Expr EAnd e1 e2) : TNBool return {Succ ()};
+typerule AdMulT <- if {ctx} |- (Expr e1) : TNInt, {ctx} |- (Expr e2) : TNInt then (Expr EMul e1 e2) : TNInt return {Succ ()};
+typerule AdOrT <- if {ctx} |- (Expr e1) : TNBool, {ctx} |- (Expr e2) : TNBool then (Expr EOr e1 e2) : TNBool return {Succ ()};
+typerule AdAddT <- if {ctx} |- (Expr e1) : TNInt, {ctx} |- (Expr e2) : TNInt then (Expr EAdd e1 e2) : TNInt return {Succ ()};
+typerule AdLTT <- if {ctx} |- (Expr e1) : TNInt, {ctx} |- (Expr e2) : TNInt then (Expr ELT e1 e2) : TNBool return {Succ ()};
+typerule AdEqT <- if {ctx} |- (Expr e1) : t, {ctx} |- (Expr e2) : t then (Expr EEq e1 e2) : TNBool return {Succ ()};
+typerule AdVarT <- if {t <- lookupContext (Var ident) ctx}, {ctx} |- (Type t) : t' then (Expr EVar ident) : t' return {Succ ()};
+typerule AdRcVar <- if {ctx} |- (Expr e) : t, {ctx} |- (Type t) : TNRec vdecls, {(newBlock ctx)} |- [VarDecl vdecls], {t <- lookupContext (Var ident) var1}, {ctx} |- (Type t) : t' then (Expr ERecVar e ident ) : t' return {Succ ()};
+typerule AdECallT <- if {ctx} |- [Expr es] : ts, {t <- lookupContext (Func ident ts) ctx} then (Expr ECall ident es) : t return {Succ ()};
+typerule AdExprList <- if {ctx} |- (Expr e) : t, {ctx} |- [Expr es] : ts, {let ts' = t : ts} then [Expr e es] : ts' return {Succ ()}; typerule AdExprList <- if {let t = []} then [Expr] : t return {Succ ()}; 
+
+-- Resolve Types
+typerule AdTNSyn <- if {t <- lookupContext (Typ ident) ctx}, {ctx} |- (Type t) : t' then (Type TNSyn ident) : t' return {Succ ()};
+typerule AdTRec <- if {ctx} |- [ConvVdecls vdecls] then (Type TNRec vdecls) : TNRec var1 return {Succ ()};
+typerule Adt <- (Type t) : t return {Succ ()};
+typerule AdTypeList <- if {ctx} |- (Type t) : t', {ctx} |- [Type ts] : ts', {let ts'' = t' : ts'} then [Type t ts] : ts'' return {Succ ()}; typerule AdTypeList <- if {let ts = []} then [Type] : ts return {Succ ()};
+
+typerule ConvVdecls <- if {let VDecl ident t = vdecl}, {ctx} |- (Type t) : t', {ctx} |- [ConvVdecls vdecls] then [ConvVdecls vdecl vdecls] return {Succ (VDecl ident t' : var1)};
+typerule ConvVdecls <- [ConvVdecls] return {Succ []};

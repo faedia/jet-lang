@@ -1,8 +1,10 @@
-Prog.    Program ::= ProcDecl;
-FDecl.   FuncDecl ::= "function" Ident "(" [VarDecl] ")" "return" TypeName [Decl] "begin" [Stmnt] "end" ";";
-PDecl.   ProcDecl ::= "procedure" Ident "(" [VarDecl] ")" [Decl] "begin" [Stmnt] "end" ";";
+Prog.    Program ::= [TypeDecl] ProcDecl ";";
+TDecl.   TypeDecl ::= "type" Ident "=" TypeName;
+FDecl.   FuncDecl ::= "function" Ident "(" [VarDecl] ")" "return" TypeName [Decl] "begin" [Stmnt] "end";
+PDecl.   ProcDecl ::= "procedure" Ident "(" [VarDecl] ")" [Decl] "begin" [Stmnt] "end";
 VDecl.   VarDecl  ::= Ident ":" TypeName; 
 separator VarDecl ";";
+terminator TypeDecl ";";
 
 DFunc.   Decl ::= FuncDecl;
 DProc.   Decl ::= ProcDecl;
@@ -12,6 +14,7 @@ terminator Decl ";";
 SNull.   Stmnt ::= "null";
 SPrint.  Stmnt ::= "print" Expr;
 SAssign. Stmnt ::= Ident ":=" Expr;
+SRcAsgn. Stmnt ::= Expr4 "." Ident ":=" Expr;
 SIf.     Stmnt ::= "if" Expr "then" [Stmnt] "else" [Stmnt] "end";
 SWhile.  Stmnt ::= "while" Expr "do" [Stmnt] "end";
 SBlock.  Stmnt ::= "declare" [Decl] "begin" [Stmnt] "end";
@@ -23,6 +26,7 @@ EInt.    Expr4 ::= Integer;
 ETrue.   Expr4 ::= "true";
 EFalse.  Expr4 ::= "false";
 EVar.    Expr4 ::= Ident;
+ERecVar. Expr4 ::= Expr4 "." Ident;
 
 ECall.   Expr3 ::= Ident "(" [Expr] ")";
 ENeg.    Expr3 ::= "neg" Expr4;
@@ -36,9 +40,12 @@ EOr.     Expr1 ::= Expr1 "or" Expr2;
 
 EEq.     Expr  ::= Expr "=" Expr1;
 ELT.     Expr  ::= Expr "<" Expr1;
-coercions Expr 4;
+coercions Expr 5;
 separator Expr ",";
 
-TNBool.  TypeName ::= "bool";
-TNInt.   TypeName ::= "int";
+TNBool.  TypeName1 ::= "bool";
+TNInt.   TypeName1 ::= "int";
+TNSyn.   TypeName1 ::= Ident;
+TNRec.   TypeName ::= "record" [VarDecl] "end";
+coercions TypeName 1;
 internal TNNone. TypeName ::= ;
