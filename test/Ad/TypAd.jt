@@ -1,13 +1,6 @@
 {
-\{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleContexts #-\}
-
-module TypAd where
-
-import JetContext
-import JetErrorM
 import qualified Data.Map as M
 import AbsAd
-import Debug.Trace
 
 type Type = TypeName
 

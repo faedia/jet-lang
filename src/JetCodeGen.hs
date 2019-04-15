@@ -108,9 +108,10 @@ genInferCode tr (JInferListCons astName item list monads (Abs.TType typeName typ
     ++ genMonadCode monads
     ++ "Succ " ++ expandConstructor (typeName, typeParams) ++ "\n"
 
-genCode :: Bool -> JetInterRepr -> String
-genCode tr (JIntermediate haskell rules) = let checkRules = map fst rules; inferRules = map snd rules in 
-    h2Str haskell ++ "\n" ++ genCheckRulesCode checkRules ++ genInferRulesCode inferRules
+genCode :: String -> Bool -> JetInterRepr -> String
+genCode name tr (JIntermediate haskell rules) = let checkRules = map fst rules; inferRules = map snd rules in 
+    "{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleContexts #-}\nmodule TypAd where\nimport JetContext\nimport JetErrorM\nimport Debug.Trace\n"
+    ++ h2Str haskell ++ "\n" ++ genCheckRulesCode checkRules ++ genInferRulesCode inferRules
     where
         genCheckRulesCode :: [JetCheck] -> String
         genCheckRulesCode = foldr (\rule s -> genCheckCode tr rule ++ s) ""

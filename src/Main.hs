@@ -9,7 +9,7 @@ import ErrM
 import System.Environment
 import System.Exit
 import Data.List (elemIndex)
-import System.FilePath (replaceDirectory, replaceExtension)
+import System.FilePath (replaceDirectory, replaceExtension, takeBaseName)
 import System.Directory (createDirectoryIfMissing)
 import Data.FileEmbed (embedFile)
 import qualified Data.ByteString as B
@@ -17,9 +17,9 @@ import qualified Data.ByteString as B
 jetContextFile = $(embedFile "common/JetContext.hs")
 jetErrorFile = $(embedFile "common/JetErrorM.hs")
 
-run :: String -> Bool -> String
-run s tr = case (pTypeSystem . myLexer) s of
-    Ok tree -> (genCode tr . genIntermediateRepr) tree
+run :: String -> String -> Bool -> String
+run name s tr = case (pTypeSystem . myLexer) s of
+    Ok tree -> (genCode name tr . genIntermediateRepr) tree
     Bad err -> error err
 
 printHelp = putStr ("Usage: jetgen [-t] [-o file] file\n" 
@@ -45,7 +45,7 @@ main = do
     args <- getArgs
     (inFile, outDir, tr) <- parseArgs args
     contents <- readFile inFile
-    let code = run contents tr
+    let code = run (takeBaseName inFile) contents tr
     let outFile = replaceDirectory (replaceExtension inFile ".hs") outDir
     createDirectoryIfMissing True outDir
     writeFile outFile code
