@@ -1,5 +1,5 @@
 Prog.    Program ::= [TypeDecl] ProcDecl ";";
-TDecl.   TypeDecl ::= "type" Ident "=" TypeName;
+TDecl.   TypeDecl ::= "type" Ident "is" TypeName;
 FDecl.   FuncDecl ::= "function" Ident "(" [VarDecl] ")" "return" TypeName [Decl] "begin" [Stmnt] "end";
 PDecl.   ProcDecl ::= "procedure" Ident "(" [VarDecl] ")" [Decl] "begin" [Stmnt] "end";
 VDecl.   VarDecl  ::= Ident ":" TypeName; 
@@ -13,8 +13,7 @@ terminator Decl ";";
 
 SNull.   Stmnt ::= "null";
 SPrint.  Stmnt ::= "print" Expr;
-SAssign. Stmnt ::= Ident ":=" Expr;
-SRcAsgn. Stmnt ::= Expr4 "." Ident ":=" Expr;
+SAssign. Stmnt ::= LValue ":=" Expr;
 SIf.     Stmnt ::= "if" Expr "then" [Stmnt] "else" [Stmnt] "end";
 SWhile.  Stmnt ::= "while" Expr "do" [Stmnt] "end";
 SBlock.  Stmnt ::= "declare" [Decl] "begin" [Stmnt] "end";
@@ -25,8 +24,7 @@ terminator nonempty Stmnt ";";
 EInt.    Expr4 ::= Integer;
 ETrue.   Expr4 ::= "true";
 EFalse.  Expr4 ::= "false";
-EVar.    Expr4 ::= Ident;
-ERecVar. Expr4 ::= Expr4 "." Ident;
+EVar.    Expr4 ::= [LValue];
 
 ECall.   Expr3 ::= Ident "(" [Expr] ")";
 ENeg.    Expr3 ::= "neg" Expr4;
@@ -40,12 +38,20 @@ EOr.     Expr1 ::= Expr1 "or" Expr2;
 
 EEq.     Expr  ::= Expr "=" Expr1;
 ELT.     Expr  ::= Expr "<" Expr1;
+
+LVVar. LValue1 ::= Ident;
+LVArr. LValue ::= LValue1 "[" Expr "]";
+separator nonempty LValue ".";
+
 coercions Expr 5;
 separator Expr ",";
+coercions LValue 1;
 
-TNBool.  TypeName1 ::= "bool";
-TNInt.   TypeName1 ::= "int";
-TNSyn.   TypeName1 ::= Ident;
-TNRec.   TypeName ::= "record" [VarDecl] "end";
-coercions TypeName 1;
+TNBool.  TypeName2 ::= "bool";
+TNInt.   TypeName2 ::= "int";
+TNSyn.   TypeName2 ::= Ident;
+TNArr.   TypeName1 ::= "array" TypeName;
+TNRec.   TypeName  ::= "record" [VarDecl] "end";
+
+coercions TypeName 2;
 internal TNNone. TypeName ::= ;

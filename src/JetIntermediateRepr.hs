@@ -111,7 +111,11 @@ genTypeRule (Abs.TRule name premises (Abs.CList astType vars t) ctx)
             JCheckListEmpty astType (genPremises 1 S.empty premises) t ctx,
             JInferListEmpty astType (genPremises 1 S.empty premises) t
         )
-    | length vars == 1 = error "Singleton not supported"
+    | length vars == 1 = 
+        (
+            JCheckListSingleton astType (head vars) (genPremises 1 S.empty premises) t ctx,
+            JInferListSingleton astType (head vars) (genPremises 1 S.empty premises) t
+        )
     | length vars == 2 = 
         (
             JCheckListCons astType (head vars) (vars !! 1) (genPremises 1 S.empty premises) t ctx,

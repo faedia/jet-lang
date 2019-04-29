@@ -83,6 +83,11 @@ genCheckCode tr (JCheckListEmpty astName monads (Abs.TType typeName typeParams) 
     ++ (if tr then genTraceCode astName (Abs.Ident "", []) Abs.TNone "checkList" ++ nltab else "") 
     ++ genMonadCode monads
     ++ "if jetCheckType == " ++ expandConstructor (typeName, typeParams) ++ " then " ++ h2Str ctx ++ " else Fail (makeCheckErrorList [] jetCheckType " ++ expandConstructor (typeName, typeParams) ++ ")\n"
+genCheckCode tr (JCheckListSingleton astName item monads (Abs.TType typeName typeParams) ctx) =
+    "check" ++ id2Str astName ++ "List [" ++ id2Str item ++ "] jetCheckType ctx = do" ++ nltab
+    ++ (if tr then genTraceCode astName (item, []) Abs.TNone "checkList" ++ nltab else "") 
+    ++ genMonadCode monads
+    ++ "if jetCheckType == " ++ expandConstructor (typeName, typeParams) ++ " then " ++ h2Str ctx ++ " else Fail (makeCheckErrorList [" ++ id2Str item ++ "] jetCheckType " ++ expandConstructor (typeName, typeParams) ++ ")\n"
 genCheckCode tr (JCheckListCons astName item list monads (Abs.TType typeName typeParams) ctx) =
     "check" ++ id2Str astName ++ "List (" ++ id2Str item ++ ":" ++ id2Str list ++ ") jetCheckType ctx = do" ++ nltab
     ++ (if tr then genTraceCode astName (item, [list]) Abs.TNone "checkList" ++ nltab else "") 
@@ -102,6 +107,11 @@ genInferCode tr (JInferListEmpty astName monads (Abs.TType typeName typeParams))
     ++ (if tr then genTraceCode astName (Abs.Ident "", []) (Abs.TType typeName typeParams) "infer" ++ nltab else "") 
     ++ genMonadCode monads
     ++ "Succ " ++ expandConstructor (typeName, typeParams) ++ "\n"
+genInferCode tr (JInferListSingleton astName item monads (Abs.TType typeName typeParams)) = 
+    "infer" ++ id2Str astName ++ "List ["++ id2Str item ++ "] ctx = do" ++ nltab
+    ++ (if tr then genTraceCode astName (item, []) (Abs.TType typeName typeParams) "infer" ++ nltab else "") 
+    ++ genMonadCode monads
+    ++ "Succ " ++ expandConstructor (typeName, typeParams) ++ "\n"
 genInferCode tr (JInferListCons astName item list monads (Abs.TType typeName typeParams)) = 
     "infer" ++ id2Str astName ++ "List ("++ id2Str item ++ ":" ++ id2Str list ++ ") ctx = do" ++ nltab
     ++ (if tr then genTraceCode astName (item, [list]) (Abs.TType typeName typeParams) "infer" ++ nltab else "") 
@@ -110,7 +120,7 @@ genInferCode tr (JInferListCons astName item list monads (Abs.TType typeName typ
 
 genCode :: String -> Bool -> JetInterRepr -> String
 genCode name tr (JIntermediate haskell rules) = let checkRules = map fst rules; inferRules = map snd rules in 
-    "{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleContexts #-}\nmodule TypAd where\nimport JetContext\nimport JetErrorM\nimport Debug.Trace\n"
+    "{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleContexts #-}\nmodule " ++ name ++" where\nimport JetContext\nimport JetErrorM\nimport Debug.Trace\n"
     ++ h2Str haskell ++ "\n" ++ genCheckRulesCode checkRules ++ genInferRulesCode inferRules
     where
         genCheckRulesCode :: [JetCheck] -> String
