@@ -3,7 +3,7 @@ name: jet-lang
 version: 0.1.0.0
 license: BSD3
 license-file: LICENSE
-maintainer: smt529@york.ac.uk
+maintainer: Steven Tomlinson
 author: Steven Tomlinson
 category: Language
 build-type: Simple
@@ -21,6 +21,7 @@ executable jetgen
         JetCodeGen
         JetIntermediateRepr
     default-language: Haskell2010
+    build-tools: alex, happy, bnfc
     build-depends:
         base >=4.11 && <4.13,
         array -any,
